@@ -1,19 +1,51 @@
 ---
-title: The Prerequisites 
+title: Program Development Prerequisites 
 description: You're not dumb, you just lack the Prerequisites
 ---
 
-## Code Block
+Solana programs are built around three key components: accounts, instructions, and transactions.
 
-```js
-console.log('Hello World');
+## Accounts
+
+An account on Solana is essentially a storage unit holding data. Every one is associated with a unique 32-byte address that identifies it and an “Owner” which specifies the Solana program that has exclusive authority to modify or interpret the account's data.
+
+For example, Solana wallets are a type of account owned by the Solana system program. The System Program is a native program on Solana responsible for creating accounts, allocating data to accounts, and assigning ownership of accounts to connected programs.
+
+
+
+<Callout>
+**Ownership vs. Control:**
+
+An account's **owner** (like the System Program) defines which logic can modify the account's data. 
+However, **control** belongs to whoever holds the account's private key, allowing them to authorize transactions and interactions.
+</Callout>
+
+Your wallet address is the unique identifier for your wallet account. In addition to having an owner and an identifier, each account also holds:
+
+- **Lamports**, which are fractional units of SOL tokens. Lamports are used to pay transaction fees and to fund the rent required for storage on-chain.
+- **Data Storage**, which is arbitrary binary data managed explicitly by the account's owner program.
+- An **Executable Flag**, indicating whether the account stores executable code, such as a smart contract program.
+
+Here’s the structure of a Solana account in code:
+
+```rust
+pub struct Account {
+    /// lamports in the account
+    pub lamports: u64,
+    /// data held in this account
+    #[cfg_attr(feature = "serde", serde(with = "serde_bytes"))]
+    pub data: Vec<u8>,
+    /// the program that owns this account. If executable, the program that loads this account.
+    pub owner: Pubkey,
+    /// this account's data contains a loaded program (and is now read-only)
+    pub executable: bool,
+    /// the epoch at which this account will next owe rent (legacy field, no longer in use)
+    pub rent_epoch: Epoch,
+}
 ```
 
-## Cards
+### Types of accounts
 
+Based on their function, accounts on Solana can be categorized into executable and non-executable accounts. As the name suggests, executable accounts store program code. The only type of accounts that fall under this category are called **Program Accounts**.
 
-
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.vercel.app" />
-</Cards>
+Non-executable accounts, by contrast, hold persistent data. They may represent token balances, order books, NFT metadata, anything the owner program needs to remember between calls.

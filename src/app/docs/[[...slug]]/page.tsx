@@ -21,6 +21,7 @@ export default async function Page(props: {
   return (
     <DocsPage
       tableOfContent={{ style: "clerk" }}
+      lastUpdate={new Date(page.data.lastModified as Date)}
       toc={page.data.toc}
       full={page.data.full}
     >

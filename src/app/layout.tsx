@@ -9,12 +9,16 @@ const inter = Inter({
 
 const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-geist"
+  variable: "--font-geist",
 });
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${inter.className} ${geist.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.className} ${geist.variable}`}
+      suppressHydrationWarning
+    >
       <body className="flex flex-col min-h-screen">
         <RootProvider>{children}</RootProvider>
       </body>

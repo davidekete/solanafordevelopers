@@ -15,6 +15,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Accordion,
     Accordions,
     ...components,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     pre: ({ ref: _ref, ...props }) => (
       <CodeBlock {...props}>
         <Pre>{props.children}</Pre>

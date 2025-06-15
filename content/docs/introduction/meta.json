@@ -1,6 +1,6 @@
 {
   "title": "Introduction",
   "pages": ["index", "..."],
-  "defaultOpen": true,
-  "icon": "Building"
+  "defaultOpen": true
+  
 }

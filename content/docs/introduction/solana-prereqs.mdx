@@ -27,7 +27,7 @@ Your wallet address is the unique identifier for your wallet account. In additio
 
 Here’s the structure of a Solana account in code:
 
-```rust
+```rust title="Rust"
 pub struct Account {
     /// lamports in the account
     pub lamports: u64,
@@ -57,3 +57,57 @@ There are other types of non-executable accounts, and you will encounter them as
 As we mentioned before, only the account owner can change their data. Using user wallets as an example, only the system program can modify their data (increase or reduce the balance).
 
 When you send or receive SOL using a wallet, a transaction that invokes the system program is executed under the hood to update your balance. In the next section, you will explore the concepts of transactions and instructions.
+
+## Transactions and Instructions
+
+A transaction is a signed collection of one or more **instructions**. It describes what should happen on-chain and which accounts are involved.
+
+To authorize a transaction, you must sign it with the private key of the account you’re using. This proves you control the account and grants permission to modify it or spend from it.
+
+Each **instruction** inside a transaction is a call to a Solana program. It specifies:
+
+- The **program ID** to invoke (e.g., System Program, Token Program)
+- The **accounts** involved
+- A **data payload**, usually a serialized structure that encodes what action the program should perform
+
+You can think of an instruction as, “Tell this program to do X, using these accounts, with this data.”
+
+### Example: Transferring SOL
+
+When you transfer SOL from your wallet to another, here’s what actually happens:
+
+1. A **System Program instruction** is created that says “transfer X lamports from Account A to Account B”.
+2. This instruction includes:
+   - Your wallet (Account A)
+   - The recipient's wallet (Account B)
+   - The amount to transfer (in lamports)
+3. The transaction is signed with your private key and submitted to the network.
+4. The Solana runtime validates the signature and executes the instruction by calling the System Program with the provided data.
+
+### Multiple Instructions, One Transaction
+
+Transactions can include multiple instructions. This is powerful because you can group several actions together atomically. Either all instructions succeed, or none do.
+
+For example, in a single transaction, you could:
+
+- Create a new account
+- Fund it with SOL
+- Initialize it with some program-specific data
+
+You’ll use this pattern frequently when working with Solana programs.
+
+## Rent
+
+Solana uses a **rent model** to manage storage costs and discourage unused data from bloating the network.
+
+Every account must hold a minimum number of lamports to remain rent-exempt. If an account’s balance drops below this threshold, the network may reclaim the account’s storage over time.
+
+To avoid this, you typically **prepay rent** by funding the account with enough lamports to make it rent-exempt. This is a one-time cost, and the account stays alive permanently — unless you explicitly close it and reclaim the SOL.
+
+You’ll see rent-exemption checks often when creating new accounts:
+
+```rust title="Rust"
+let rent_lamports = rent.minimum_balance(account_size);
+```
+
+This calculates the number of lamports required to make the account rent-exempt, based on its size.

@@ -1,0 +1,96 @@
+---
+title: Setting up Your Local Development Environment
+description: Set up your local environment for Solana program development
+icon: Settings
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+Follow this guide to install all the dependencies required to build Solana programs.
+
+## Install Rust
+
+You need Rust because Solana smart contracts are written in Rust and compiled to eBPF, which the Solana runtime can execute.
+
+<Callout>You can skip this step if you already have Rust installed.</Callout>
+<Steps>
+<Step>
+Run the command below to install Rust:
+
+```bash title="shell"
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+<Callout>
+  If you’re using a Windows machine, consider these [alternative methods for
+  installing
+  Rust](https://forge.rust-lang.org/infra/other-installation-methods.html).
+</Callout>
+</Step>
+
+<Step>
+Run the command below to set up the Rust environment by adding Cargo’s bin directory to your shell’s PATH:
+
+```bash title="shell"
+. "$HOME/.cargo/env"
+```
+
+</Step>
+<Step>
+Confirm successful installation by running:
+
+```bash title="shell"
+rustc --version
+```
+
+</Step>
+</Steps>
+
+## Install the Solana CLI
+
+You need the Solana CLI to develop, test, deploy, and interact with Solana programs and accounts directly from your terminal.
+
+<Steps>
+<Step>
+Run the command below to install the Solana CLI:
+
+```bash title="shell"
+sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+```
+
+</Step>
+
+<Step>
+Run the command below to add the Solana CLI tools to your system’s executable search path for the current shell session:
+
+```bash tab="bash"
+echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.bashrc
+```
+
+```bash tab="zsh"
+echo 'export PATH="$HOME/.local/share/solana/install/active_release/bin:$PATH"' >> ~/.zshrc
+```
+
+</Step>
+<Step>
+Restart your terminal by running:
+
+```bash tab="bash"
+source ~/.bashrc
+```
+
+```bash tab="zsh"
+source ~/.zshrc
+```
+
+</Step>
+
+<Step>
+Confirm your installation by running the command below:
+
+```bash title="shell"
+solana --version
+```
+
+</Step>
+</Steps>

@@ -1,5 +1,5 @@
 ---
-title: Program Development Prerequisites 
+title: Program Development Prerequisites
 description: You're not dumb, you just lack the Prerequisites
 ---
 
@@ -11,13 +11,12 @@ An account on Solana is essentially a storage unit holding data. Every one is as
 
 For example, Solana wallets are a type of account owned by the Solana system program. The System Program is a native program on Solana responsible for creating accounts, allocating data to accounts, and assigning ownership of accounts to connected programs.
 
-
-
 <Callout>
 **Ownership vs. Control:**
 
-An account's **owner** (like the System Program) defines which logic can modify the account's data. 
+An account's **owner** (like the System Program) defines which logic can modify the account's data.
 However, **control** belongs to whoever holds the account's private key, allowing them to authorize transactions and interactions.
+
 </Callout>
 
 Your wallet address is the unique identifier for your wallet account. In addition to having an owner and an identifier, each account also holds:
@@ -46,6 +45,15 @@ pub struct Account {
 
 ### Types of accounts
 
-Based on their function, accounts on Solana can be categorized into executable and non-executable accounts. As the name suggests, executable accounts store program code. The only type of accounts that fall under this category are called **Program Accounts**.
+Based on their function, accounts on Solana can be categorized into **executable** and **non-executable** accounts. As the name suggests, executable accounts store program code. The only type of accounts that fall under this category are called **Program Accounts**. An example of a Program Account is the **Metaplex NFT Program**, which executes logic related to NFT minting, transfers, and metadata management.
 
-Non-executable accounts, by contrast, hold persistent data. They may represent token balances, order books, NFT metadata, anything the owner program needs to remember between calls.
+Non-executable accounts, by contrast, hold persistent data. They may represent token balances, order books, NFT metadata, anything the owner program needs to remember between calls. Accounts that fall into this category include:
+
+- **System Accounts**, \***\*which \*\***store SOL balances and are used in fundamental operations like transfers and account creation, which the **System Program executes**. An example of a system account is your user wallet.
+- **Data Accounts**, \*\*\*\*which store arbitrary data managed by a program (e.g., user state, NFT metadata). An example of a data account is an NFT metadata account that stores the details of a specific NFT, managed by the Metaplex program.
+
+There are other types of non-executable accounts, and you will encounter them as you progress in the course.
+
+As we mentioned before, only the account owner can change their data. Using user wallets as an example, only the system program can modify their data (increase or reduce the balance).
+
+When you send or receive SOL using a wallet, a transaction that invokes the system program is executed under the hood to update your balance. In the next section, you will explore the concepts of transactions and instructions.

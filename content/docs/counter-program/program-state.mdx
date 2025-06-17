@@ -1,0 +1,45 @@
+---
+title: Defining program state
+description: Learn how to define and serialize program state in Solana using Rust structs and Borsh.
+---
+
+Program state refers to data that is associated with and can be manipulated by your program; it is essentially your program’s database.
+
+You need to define program state when writing Solana programs because Solana programs are stateless by default — they don't store data between transactions. If your program needs to remember anything (e.g. user balances, votes, ownership, or config settings), you must explicitly define and manage that data.
+
+Program state is defined using Rust structs. The `struct` exists only at the code level, helping you understand and manipulate the data while writing the program, but it’s just a logical representation. Solana itself doesn’t know what a "struct" is.
+
+ 
+
+On-chain, Solana accounts don’t store data as structs, they store raw bytes. To save or load your struct from an account, you must **serialize** it into bytes (when storing) and **deserialize** it from bytes (when reading). That’s where serialization libraries like **Borsh** come in.
+
+### Creating your counter program’s state
+
+Start by creating [`state.rs`](http://state.rs) file in your `src` folder for modularity. In your file, create a `CounterAccount` struct with a `u64` `count` property.
+
+Like so:
+
+```rust title="Rust"
+pub struct CounterAccount {
+   pub count: u64,
+}
+```
+
+The `count` property will keep track of your counter account’s current value.
+
+Next, import Borsh’s `BorshDeserialize` and `BorshSerialize` traits and implement them for your struct. Like so:
+
+```rust title="Rust"
+// [!code highlight]
+use borsh::{BorshDeserialize, BorshSerialize};
+
+// [!code highlight]
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+This allows your `CounterAccount` struct to be converted to and from raw bytes.
+
+Now that you have defined your program’s state, next you need to define the instructions your program can perform.

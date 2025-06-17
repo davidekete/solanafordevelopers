@@ -1,3 +1,5 @@
 {
-  "title": "Counter Program"
+  "title": "Counter Program",
+  "defaultOpen": true,
+  "pages": ["setup-counter", "program-state", "program-instructions"]
 }

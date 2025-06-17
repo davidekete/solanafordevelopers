@@ -20,7 +20,7 @@ export default async function Page(props: {
 
   return (
     <DocsPage
-      tableOfContent={{ style: "clerk" }}
+      tableOfContent={{ style: "clerk", single: false }}
       lastUpdate={new Date(page.data.lastModified as Date)}
       toc={page.data.toc}
       full={page.data.full}

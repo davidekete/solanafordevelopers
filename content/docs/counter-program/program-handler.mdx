@@ -1,5 +1,194 @@
 ---
-title: Defining Program Handlers
+title: Defining Instruction Handlers
 description: Learn how to write handlers for your program instructions
 icon: SquareFunction
 ---
+
+You need to define the business logic that your program will execute when the client invokes an instruction. Thus, you have to create an instruction handler function for each instruction your program supports.
+
+A common naming convention for instruction handlers is `process_<instruction_name>`. For example, the instruction handler for the `InitializeCounter` instruction would be `process_initialize_counter`.
+
+Before you start creating the handler functions, create a `processor.rs` file to store them. Then import the following helpers.
+
+```rust title="Rust"
+use crate::state::CounterAccount;
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    account_info::{AccountInfo, next_account_info},
+    entrypoint::ProgramResult,
+    msg,
+    program::invoke,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    rent::Rent,
+    system_instruction,
+    sysvar::Sysvar,
+};
+```
+
+Here’s a breakdown of what each import does:
+
+- `AccountInfo`: A struct that represents an account passed into your program; it contains metadata like the account's public key, lamports, data, owner, etc.
+- `next_account_info`: A helper function used to safely iterate over the slice of accounts passed to your program.
+- `ProgramResult`: A type alias for `Result<(), ProgramError>`. It's the standard return type for Solana programs, used to indicate success or failure.
+- `msg`: A logging macro used to print messages to the Solana runtime log. Useful for debugging and understanding program flow during execution.
+- `invoke`: Executes another program (typically the System Program) from within your program. You use this when creating accounts, transferring lamports, or calling other programs.
+- `ProgramError`: An enum that lists all the possible error types a Solana program can return. This helps communicate problems back to the client.
+- `Pubkey`: A struct representing a Solana public key. Used to identify accounts and programs on-chain.
+- `Rent`: Provides access to Solana’s rent rules, including how much lamport balance an account needs to be rent-exempt.
+- `Sysvar`: A module that gives access to system-defined variables (like Rent), which are read-only and passed into the program for context.
+- `system_instruction`: A helper module with functions to construct instructions for the System Program, like creating a new account.
+
+## Handler arguments
+
+Handler functions usually require 2-3 arguments to execute their logic. 
+
+The first argument, which is common to most handler functions, is a `program_id`, which is of type `Pubkey`. This is the public key of the deployed program itself. You need this for these scenarios:
+
+- Creating accounts that the program should own: Recall that **only the account owner can modify their data**. Thus, when creating accounts that your program interacts with, such as the account that holds the counter data, your program must be the owner.
+- Mutating accounts your program owns: When you are mutating data in accounts your program “should” own, you need to do some assertions to ensure that your program owns the account, and handle the cases gracefully to ensure your program doesn't attempt to write into accounts it doesn't own.
+
+The next argument is usually a slice of accounts, `accounts: &[AccountInfo]`. These accounts are passed into the program at runtime by the Solana runtime, and they represent the state your instruction will operate on. Since Solana programs are stateless by design, all stateful interactions must be done through accounts passed in this slice. You typically extract the relevant accounts using the `next_account_info` iterator.
+
+This is where you read from or write to external accounts, check whether they are signers or writable, and enforce ownership rules. For example, if you're incrementing a counter, you'll need to locate the counter account from this list, validate that your program owns it, and then deserialize and modify its contents.
+
+Finally, handler functions may include one or more additional parameters to represent instruction-specific data. For example, in a counter program, you might accept an `initial_value: u64` when initializing a new counter. These parameters are usually deserialized from the instruction data passed into the program and provide context for what the handler should do.
+
+Together, these arguments: `program_id`, `accounts`, and instruction data, form the foundation of most Solana instruction handlers.
+
+## Creating the InitializeCounter handler
+
+The `InitializeCounter` instructions need to create and allocate space for a new data account to store the counter data and initialize the data account with the initial value sent by the client. 
+
+Thus, it needs access to three accounts:
+
+- The counter account that will be created and initialized.
+- The payer account (who is also the signer) that will fund the new account creation.
+- System Program account, which is responsible for creating new accounts.
+
+To define the accounts required by the instruction in your handler, you need to create an iterator over the `accounts` slice and use the `next_account_info` function to get each account. The `next_account_info` function moves through the slice sequentially, giving you one account at a time. So the number of times you call it directly maps to the number of accounts your instruction expects.
+
+In this case, you need three, so you need to call the `next_account_info` on the iterator three times. Solana doesn't use named parameters for accounts, just a flat list. Therefore, when your client sends a transaction and attaches accounts to it, it must pass them in the same order that your program expects. If the order is incorrect, the program may read the wrong account or fail at runtime.
+
+<Callout>
+When using **Anchor**, it handles this automatically using named accounts, as long as you define them properly in your `#[derive(Accounts)]` struct.
+
+</Callout>
+
+While extracting he accounts, it is helpful to do some checks, like checking if the account has already been initialized or if the payer is a signer, and exiting early if the checks fail.
+
+Here’s an implementation of the `process_initialize_counter` function containing everything we have covered up to this point:
+
+```rust title="Rust"
+pub fn process_initialize_counter(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    value: u64,
+) -> ProgramResult {
+    //Create an iterator for the accounts
+    let accounts_iter = &mut accounts.iter();
+
+    // Get the account that will hold the counter
+    let counter_account = next_account_info(accounts_iter)?;
+
+    // Check if the account is already initialized
+    if !counter_account.data_is_empty() {
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    // Get the account that will pay for the initialization (This account must be a signer)
+    let payer_account = next_account_info(accounts_iter)?;
+
+    // Ensure the payer account is a signer
+    if !payer_account.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // Get the system program account for creating accounts
+    let system_program = next_account_info(accounts_iter)?;
+    
+    }
+```
+
+<Callout>
+Here’s a list of [available variants for `ProgramError`](https://docs.rs/solana-program/latest/solana_program/program_error/enum.ProgramError.html#variants).
+
+</Callout>
+
+Next, you need to create the counter account by invoking the system program. However, before you can create an account, you need to specify the space (in bytes) to allocate to the account's data field. You calculate this space based on the size of the data the account will store. In this case, the counter only needs to store a single `u64` value, which occupies 8 bytes. You can use Rust’s `std::mem::size_of` to determine this at compile time.
+
+You also need to determine the minimum balance required to make the account rent-exempt. Solana requires accounts to maintain a minimum balance (in lamports) based on the space they use. If this balance isn’t met, the account risks being deleted. You can use the `Rent` sysvar to calculate this threshold.
+
+You can append the code block below to the previous one to implement the logic we have discussed up to this point:
+
+```rust title="Rust"
+// Calculate the required space for the CounterAccount
+    let account_space = std::mem::size_of::<CounterAccount>();
+
+    // Get the
+    let rent = Rent::get()?;
+
+    // calculate the required lamports for rent exemption
+    let required_lamports_for_rent_exemption = rent.minimum_balance(account_space);
+```
+
+Once you have defined the space and calculated the rent, you create the counter account by invoking the System Program's `create_account` instruction.
+
+ 
+
+<Callout>
+
+Calling a program (E.g, System Program from our program) from another program is known as a Cross-Program Invocation (CPI).
+
+</Callout>
+
+This instruction will create the new account, allocate the specified space for the account data field, and transfer ownership to your program. Transferring ownership of the account to your program will allow you to modify the account’s data.
+
+You can implement this by appending the code block below to the current handler function:
+
+```rust title="Rust"
+    // Create the instruction to create the counter account
+    let create_counter_ix = solana_system_interface::instruction::create_account(
+        payer_account.key, // Payer account
+        counter_account.key, // Counter account to be created
+        required_lamports_for_rent_exemption,
+        account_space as u64,
+        program_id, // Program ID of the counter program
+    );
+
+    // Invoke the system program to create the counter account
+    invoke(
+        &create_counter_ix,
+        &[
+            payer_account.clone(),
+            counter_account.clone(),
+            system_program.clone(),
+        ],
+    )?;
+```
+
+Once the counter account has been successfully created, the next step is to initialize it with the provided `value`. To do this, construct a `CounterAccount` instance, serialize it, and write the serialized data into the account’s data buffer.
+
+Solana accounts store data as raw bytes, so you need to use Borsh (or your chosen serialization method) to convert the `CounterAccount` struct into a format that can be written directly into the account’s memory.
+
+Append the following to complete the handler:
+
+```rust title="Rust"
+// Initialize the counter account with the provided value
+let counter_data = CounterAccount { count: value };
+
+// Serialize the counter data into the account's data
+let mut account_data = &mut counter_account.data.borrow_mut()[..];
+
+// Serialize the CounterAccount into the account's data
+counter_data.serialize(&mut account_data)?;
+
+msg!("Counter initialized with value: {}", value);
+
+Ok(())
+}
+```
+
+This final block performs three key tasks: instantiates the `CounterAccount` with the initial count, borrows the account’s mutable data buffer, and serializes the struct, writing it into the buffer.
+
+The `msg!` macro logs a message to the Solana runtime, which can help with debugging or confirming execution during local testing. Your `process_initialize_counter` function is now complete.

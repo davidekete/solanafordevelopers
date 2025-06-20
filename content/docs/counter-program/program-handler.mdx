@@ -4,6 +4,8 @@ description: Learn how to write handlers for your program instructions
 icon: SquareFunction
 ---
 
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
 You need to define the business logic that your program will execute when the client invokes an instruction. Thus, you have to create an instruction handler function for each instruction your program supports.
 
 A common naming convention for instruction handlers is `process_<instruction_name>`. For example, the instruction handler for the `InitializeCounter` instruction would be `process_initialize_counter`.
@@ -41,7 +43,7 @@ Here’s a breakdown of what each import does:
 
 ## Handler arguments
 
-Handler functions usually require 2-3 arguments to execute their logic. 
+Handler functions usually require 2-3 arguments to execute their logic.
 
 The first argument, which is common to most handler functions, is a `program_id`, which is of type `Pubkey`. This is the public key of the deployed program itself. You need this for these scenarios:
 
@@ -58,7 +60,7 @@ Together, these arguments: `program_id`, `accounts`, and instruction data, form 
 
 ## Creating the InitializeCounter handler
 
-The `InitializeCounter` instructions need to create and allocate space for a new data account to store the counter data and initialize the data account with the initial value sent by the client. 
+The `InitializeCounter` instructions need to create and allocate space for a new data account to store the counter data and initialize the data account with the initial value sent by the client.
 
 Thus, it needs access to three accounts:
 
@@ -106,7 +108,7 @@ pub fn process_initialize_counter(
 
     // Get the system program account for creating accounts
     let system_program = next_account_info(accounts_iter)?;
-    
+
     }
 ```
 
@@ -133,8 +135,6 @@ You can append the code block below to the previous one to implement the logic w
 ```
 
 Once you have defined the space and calculated the rent, you create the counter account by invoking the System Program's `create_account` instruction.
-
- 
 
 <Callout>
 
@@ -192,3 +192,80 @@ Ok(())
 This final block performs three key tasks: instantiates the `CounterAccount` with the initial count, borrows the account’s mutable data buffer, and serializes the struct, writing it into the buffer.
 
 The `msg!` macro logs a message to the Solana runtime, which can help with debugging or confirming execution during local testing. Your `process_initialize_counter` function is now complete.
+
+## Creating the Increment handler
+
+Unlike the `InitializeCounter` instruction, which creates and initializes a new account, the `IncrementCounter` instruction assumes the account already exists and is properly initialized. Its role is much simpler: mutate existing data within the counter account.
+
+This difference shapes the entire structure of the handler:
+
+- `InitializeCounter`: creates a new account, calculates rent, invokes the System Program via CPI, and writes the initial data.
+- `IncrementCounter`: loads an existing account, deserializes its contents, increments the values, and re-serializes them.
+
+Since this instruction modifies the existing state, the only account it requires is the counter account itself. But to prevent unauthorized programs from modifying it, your handler must verify that your program owns this account.
+
+Let’s walk through the implementation.
+
+<Steps>
+<Step>
+First, extract the `counter_account` from the account list. This is the only account this instruction needs since it performs an in-place update.
+
+```rust
+pub fn process_increment(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+
+    let counter_account = next_account_info(accounts_iter)?;
+```
+
+</Step>
+
+<Step>
+Ownership verification is crucial. Only the owning program is allowed to mutate an account's data. If another program attempts to modify the counter, the operation must be rejected.
+
+```rust
+    // Verify account ownership
+    if counter_account.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+```
+
+</Step>
+<Step>
+ Next, borrow the account’s data mutably and deserialize it into your `CounterAccount` struct. This gives you structured access to the values inside the account.
+
+```rust
+    // Mutable borrow the account data
+    let mut data = counter_account.data.borrow_mut();
+
+    let mut counter_data: CounterAccount = CounterAccount::try_from_slice(&data)?;
+```
+
+</Step>
+<Step>
+Increment the `counter` with `checked_add` to guard against integer overflow safely. If overflow occurs, the instruction fails with a `ProgramError::InvalidAccountData`.
+
+```rust
+    counter_data.count = counter_data
+        .count
+        .checked_add(1)
+        .ok_or(ProgramError::InvalidAccountData)?;
+```
+
+</Step>
+<Step>
+Finally, serialize the updated struct back into the account’s data buffer and log the new value.
+
+```rust
+    counter_data.serialize(&mut &mut data[..])?;
+
+    msg!("Counter incremented to: {}", counter_data.count);
+
+    Ok(())
+}
+```
+
+</Step>
+
+</Steps>
+
+This handler demonstrates a typical Solana pattern: validate account ownership, deserialize state, apply updates safely, and write the data back. Since you're working with mutable account state, correctness and safety checks are essential at every step.

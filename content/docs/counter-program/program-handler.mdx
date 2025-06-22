@@ -210,7 +210,7 @@ Let’s walk through the implementation.
 <Step>
 First, extract the `counter_account` from the account list. This is the only account this instruction needs since it performs an in-place update.
 
-```rust
+```rust title="Rust"
 pub fn process_increment(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
 
@@ -222,7 +222,7 @@ pub fn process_increment(program_id: &Pubkey, accounts: &[AccountInfo]) -> Progr
 <Step>
 Ownership verification is crucial. Only the owning program is allowed to mutate an account's data. If another program attempts to modify the counter, the operation must be rejected.
 
-```rust
+```rust title="Rust"
     // Verify account ownership
     if counter_account.owner != program_id {
         return Err(ProgramError::IncorrectProgramId);
@@ -233,7 +233,7 @@ Ownership verification is crucial. Only the owning program is allowed to mutate 
 <Step>
  Next, borrow the account’s data mutably and deserialize it into your `CounterAccount` struct. This gives you structured access to the values inside the account.
 
-```rust
+```rust title="Rust"
     // Mutable borrow the account data
     let mut data = counter_account.data.borrow_mut();
 
@@ -244,7 +244,7 @@ Ownership verification is crucial. Only the owning program is allowed to mutate 
 <Step>
 Increment the `counter` with `checked_add` to guard against integer overflow safely. If overflow occurs, the instruction fails with a `ProgramError::InvalidAccountData`.
 
-```rust
+```rust title="Rust"
     counter_data.count = counter_data
         .count
         .checked_add(1)
@@ -255,7 +255,7 @@ Increment the `counter` with `checked_add` to guard against integer overflow saf
 <Step>
 Finally, serialize the updated struct back into the account’s data buffer and log the new value.
 
-```rust
+```rust title="Rust"
     counter_data.serialize(&mut &mut data[..])?;
 
     msg!("Counter incremented to: {}", counter_data.count);

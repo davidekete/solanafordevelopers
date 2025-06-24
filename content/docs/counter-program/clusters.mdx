@@ -1,0 +1,47 @@
+---
+title: Solana Clusters
+description: Learn about the different Solana clusters and how to interact with them.
+icon: Server
+---
+
+A cluster is a live network of validator nodes that agree on a single ledger. Every cluster behaves like its own independent blockchain: it has its own genesis block, slot history, accounts, programs, token mints, and SOL supply.
+
+Solana programs are deployed on clusters. Solana maintains several clusters, each with a different purpose, and here you'll cover the Localhost, Devnet, Testnet, and Mainnet Beta clusters.
+
+## Localhost cluster (Local)
+
+In the early stages of program development, testing it without restrictions is crucial. You can achieve this using a local development cluster. Luckily, the Solana CLI you installed earlier also ships with a binary that starts a full-featured, single-node cluster on the developer's workstation, the Solana Test Validator.
+
+On the localhost cluster, you have access to unlimited SOL, with no rate limits. Because the ledger lives only in RAM, you can wipe bad state by stopping the process and relaunching.
+
+Additionally, you can configure your transaction history retention on the ledger, among other settings, providing the flexibility you need during development.
+
+## Devnet cluster (Dev)
+
+Once your program compiles and passes unit tests locally, you can move to **Devnet** to see how it behaves and catch integration bugs that can only appear on a public, multi-node network.
+
+Devnet mirrors Mainnet Beta’s economic parameters, such as transaction fees, rent, and stake, but uses free “dev SOL” and offers a faucet so you can top up at any time.
+
+On Devnet, you can faucet as much dev SOL as you like, but the network still charges every transaction a fee measured in lamports (just as Mainnet does). “Gas costs” refers to those fees: the protocol tallies the compute units and signatures your instruction consumes, multiplies them by the current fee rate, and deducts that amount from the fee-payer’s balance.
+
+## Testnet cluster (Staging)
+
+Testnet runs the _next_ release of the Solana validator before it hits production. Core contributors stress-test new consensus features, so you should expect sudden ledger resets, forks, and higher traffic than Devnet.
+
+Because Testnet’s ledger resets unpredictably, treat it as an ephemeral environment. Use it to:
+
+- Benchmark performance under the exact runtime that will soon land on Mainnet
+- Validate your program against protocol changes (e.g., new sysvars or instruction limits)
+- Catch breaking changes early and adjust your code or deployment scripts accordingly
+
+No faucet exists on Testnet; request tokens from the Solana Discord #testnet-faucet channel if you need SOL for fee coverage.
+
+## Mainnet Beta (Prod)
+
+Mainnet Beta is the production network that secures real SOL and every live Solana application. Transactions are irreversible, and on-chain data is immutable.
+
+Before deploying your program on Mainnet Beta, ensure you audit your program for safety, re-entrancy, and quota limits, run integration tests on Devnet and Testnet until they pass consistently. Additionally, Fund the deployment keypair with enough SOL to cover the upgrade-able program account’s rent and deployment fees.
+
+After deployment, monitor logs and on-chain metrics (e.g., transaction success rate, compute units consumed) to catch issues early. Remember: upgrading a program on Mainnet Beta requires an upgrade authority and carries the same real-money implications as the initial deployment.
+
+By progressing through Localhost → Devnet → Testnet → Mainnet Beta, you build confidence at each stage and minimize surprises when your Solana program finally serves real users. On the next page, you will deploy your counter program on a local cluster.

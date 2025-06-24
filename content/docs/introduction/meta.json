@@ -2,5 +2,4 @@
   "title": "Introduction",
   "pages": ["index", "crypto-wallets", "solana-prereqs", "setup"],
   "defaultOpen": true
-  
 }

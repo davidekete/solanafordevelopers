@@ -1,0 +1,114 @@
+---
+title: Introduction to Solana
+description: Learn about the Solana blockchain, its architecture, and how to get started as a developer.
+icon: BrickWall
+---
+
+## What is a blockchain?
+
+A **blockchain** is a distributed ledger—an ever-growing, append-only database that is shared and validated by many independent computers.
+
+- **Block** – Transactions are grouped into blocks. If you send SOL to someone, that transfer must be included in a block before it is final.
+- **Chain** – Each block cryptographically references the previous block, creating an immutable chain of history. Altering a past block would require rewriting every subsequent block and convincing the entire network to accept the change.
+
+Every validating computer (a **validator**) keeps a full copy of the ledger and must agree on the same chain tip. Reaching this distributed agreement is the job of the **consensus mechanism**.
+
+Solana combines **Proof of Stake (PoS)** with a novel time-ordering technique called **Proof of History (PoH)**. Validators stake SOL and run software that:
+
+1. Generates a continuous, verifiable stream of timestamps → PoH.
+2. Votes on the validity of blocks built atop that time stream → Tower BFT (a PBFT-style PoS consensus).
+
+The result is a high-throughput network that can process tens of thousands of transactions per second while keeping global agreement on time and state.
+
+## What is Solana?
+
+**Solana** is a high-performance Layer-1 blockchain designed for scalable, low-latency applications—think real-time DeFi, on-chain games, and social networks.
+
+Key design ideas:
+
+- **Single Global State** – All programs read and write to a single state machine replicated by every validator, simplifying composability.
+- **Separation of Consensus & Execution** – PoH orders transactions quickly; a parallelized runtime executes them in many threads, leveraging modern CPUs and GPUs.
+- **Gulf Stream & Turbine** – A mempool-less forwarding layer and UDP-based block propagation keep data moving fast across the world.
+- **Runtime agnostic** – Programs are compiled to **eBPF**, enabling developers to write in Rust, C, C++, or any language that can target BPF.
+
+Together these innovations let Solana confirm blocks in ~400 ms and finalize them in seconds without sharding or Layer-2 systems.
+
+## What is SOL?
+
+**SOL** is Solana’s native cryptocurrency. It underpins network security and acts as the unit of account for computation.
+
+- **Transaction fees** – Users pay a small amount of SOL to have their transactions processed. Fees rise only when the network is near saturation, discouraging spam.
+- **Rent** – Accounts pay “rent” (a tiny SOL fee) proportional to their stored data to prevent state bloat. You can make an account rent-exempt by funding it above a threshold.
+- **Staking & Delegation** – Validators lock SOL as collateral, and anyone can delegate SOL to validators to share rewards. Dishonest validators risk having their stake slashed.
+
+## What are programs?
+
+On Solana, smart contracts are called **programs**. A program is a deployed eBPF binary plus its immutable on-chain code. Users interact with programs by sending **instructions** that reference:
+
+1. The program’s address.
+2. Accounts to read or modify.
+3. Arbitrary input data.
+
+Programs are _stateless_—all mutable data lives in accounts passed into the instruction. This design, together with parallel execution, lets independent transactions run concurrently if they access disjoint sets of accounts.
+
+Developers typically write programs in Rust using the **Solana SDK** or higher-level frameworks like **Anchor**. Any user can interact with a deployed program for a fee, enabling on-chain order books, lending protocols, NFTs, games, and more.
+
+## Terminology
+
+### Blockchain
+
+The ever-growing sequence of blocks (slots) committed to Solana. Each block references the hash of the previous block’s PoH entry, enforcing order and immutability.
+
+### SOL
+
+The native token used to pay transaction fees, earn staking rewards, and secure the network via Proof of Stake.
+
+[More on SOL](/developers/docs/intro-to-sol/)
+
+### Runtime
+
+Solana’s parallel execution engine. It verifies BPF bytecode, schedules transactions across cores, and enforces account ownership & rent rules.
+
+[More on the runtime](/developers/docs/runtime/)
+
+### Validators
+
+Nodes that stake SOL, maintain the ledger, vote on blocks, and earn rewards. Validators may be run by individuals, companies, or data centers.
+
+[More on validators](/developers/docs/validators/)
+
+### Accounts
+
+Fixed-size data buffers that store program state or user balances. Every account has an owner (a program) and an optional SOL balance used for rent.
+
+[More on accounts](/developers/docs/accounts/)
+
+### Transactions
+
+Atomic bundles of one or more instructions plus the set of accounts those instructions touch. Transactions are signed, forwarded, and executed in a single block.
+
+[More on transactions](/developers/docs/transactions/)
+
+### Slots & Blocks
+
+Time on Solana is divided into _slots_ (~400 ms). A leader validator produces a block each slot, containing the executed transactions for that interval.
+
+[More on slots & blocks](/developers/docs/blocks/)
+
+### Programs
+
+Executable BPF binaries deployed on-chain. Users invoke programs by including their address in a transaction instruction.
+
+[More on programs](/developers/docs/programs/)
+
+## Further reading
+
+- [Solana Whitepaper](https://solana.com/solana-whitepaper.pdf)
+- [Anatoly Yakovenko’s original PoH blog post](https://solana.com/news/proof-of-history)
+- [Solana Docs – Under the Hood](/developers/docs/how-solana-works/)
+
+_Know of a community resource that helped you? Edit this page and add it!_
+
+## Related tutorials
+
+- [Building your first Solana dapp with Anchor](/developers/tutorials/anchor-time/) – Deploy a simple counter program and interact with it from a React front end.

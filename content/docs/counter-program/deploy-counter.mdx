@@ -1,0 +1,95 @@
+---
+title: Deploying Programs on Localnet
+description: Learn how to deploy your Solana program on the localnet cluster.
+icon: CloudUpload
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+Typically, you are supposed to write automated tests for your programs so that you can test them on the localnet with a client interface, but I’m saving tests for the next project.
+
+Thus, you will deploy this program to localnet from the jump. Here are the steps you need to follow:
+
+<Steps>
+
+<Step>
+### Step 1: Start the Local Validator
+
+Start the local validator by running the command below:
+
+```bash title="bash"
+solana-test-validator
+```
+
+This launches the local cluster and prints logs to your terminal. Leave this running in a separate terminal window or tab.
+
+</Step>
+
+<Step>
+
+### Step 2: Configure `Cargo.toml` for BPF Compilation
+
+Before building your program, make sure your `Cargo.toml` includes the proper crate type for Solana:
+
+```toml title="Cargo.toml"
+[lib]
+crate-type = ["cdylib", "lib"]
+
+```
+
+This tells Cargo to compile your program both as a dynamic library (`cdylib`), which Solana requires for deployment, and as a regular Rust library (`lib`), which is useful for local development and testing.
+
+</Step>
+
+<Step>
+
+### Step 3: Build the Program
+
+Compile your Solana program into a BPF-compatible shared object:
+
+```bash
+cargo build-sbf
+
+```
+
+This command generates a `.so` binary in the `target/deploy/` directory. This file is what you will deploy to the local cluster.
+
+</Step>
+
+<Step>
+
+### Step 4: Deploy the Program
+
+Use the CLI to deploy your compiled program:
+
+```bash title="bash"
+solana program deploy ./target/deploy/<program_name>.so
+```
+
+</Step>
+
+<Callout>
+
+Replace `<program_name>` with the “counter”.
+
+</Callout>
+
+The CLI will output a **Program ID** (a public key) that uniquely identifies your program on the cluster.
+
+<Step>
+
+### Step 5: Confirm Deployment
+
+To verify that your program has been deployed successfully, run:
+
+```bash title="bash"
+solana program show <PROGRAM_ID>
+```
+
+</Step>
+
+This displays details like the program's account balance and status on the local cluster.
+
+</Steps>
+
+At this point, your Solana program is live on Localnet. You can now interact with it using a client, simulate real-world usage, and debug freely before deploying to Devnet or Mainnet.

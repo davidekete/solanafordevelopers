@@ -1,0 +1,69 @@
+---
+title: Writing your Program's Entrypoint
+description: Learn how to write the entrypoint for your Solana program.
+icon: DoorOpen
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+Every Solana program must define an **entry point**. An entry point is a function that gets called whenever your program receives an instruction.
+
+This is where the Solana runtime hands off control to your code, and where you decide which instruction to execute based on the input.
+
+In native Rust Solana programs, this entry point is declared using the `entrypoint!` macro provided by the `solana_program` crate. It wraps your custom processing logic in a standard interface that the runtime understands.
+
+Here’s how to implement your program’s entrypoint:
+
+<Steps>
+<Step>
+In your `lib.rs` file, import the required macros and declare your entrypoint function:
+
+```rust title="Rust"
+pub mod instructions;
+pub mod processor;
+pub mod state;
+
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+```
+
+The macro registers `process_instruction` as the function that the Solana runtime should call whenever your program is invoked.
+
+</Step>
+
+<Step>
+
+Next, define the `process_instruction` function. Its role is to decode the incoming instruction data, determine which instruction it represents, and dispatch the call to the appropriate handler (e.g., `process_initialize_counter` or `process_increment`).
+
+For example:
+
+```rust title="Rust"
+pub fn process_instruction(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let instruction = instructions::CounterInstruction::unpack(instruction_data)?;
+
+    match instruction {
+        instructions::CounterInstruction::InitializeCounter { initial_value } => {
+            msg!("Instruction: InitializeCounter");
+            processor::process_initialize_counter(program_id, accounts, initial_value)
+        }
+
+        instructions::CounterInstruction::IncrementCounter => {
+            msg!("Instruction: IncrementCounter");
+            processor::process_increment(program_id, accounts)
+        }
+    }
+}
+```
+
+</Step>
+
+</Steps>
+
+With your entrypoint in place, your program can now respond to any instruction that matches the format of CounterInstruction. It cleanly separates the instruction parsing from the actual logic (handled in your `process_initialize_counter` and `process_increment` functions), making your program modular and easy to maintain.

@@ -1,5 +1,12 @@
 {
   "title": "Counter Program",
   "defaultOpen": true,
-  "pages": ["setup-counter", "program-state", "program-instructions", "program-handler", "clusters"]
+  "pages": [
+    "setup-counter",
+    "program-state",
+    "program-instructions",
+    "program-handler",
+    "program-entrypoint",
+    "clusters"
+  ]
 }

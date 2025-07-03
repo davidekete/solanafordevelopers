@@ -1,0 +1,53 @@
+name: Accessibility Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  accessibility-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build site
+      run: npm run build
+
+    - name: Start server
+      run: |
+        npm start &
+        sleep 30
+
+    - name: Wait for server
+      run: |
+        timeout 60 bash -c 'until curl -s http://localhost:3000 > /dev/null; do sleep 1; done'
+
+    - name: Run axe accessibility tests
+      run: |
+        npx @axe-core/cli http://localhost:3000 \
+          --include-tags wcag2a,wcag2aa,wcag21aa \
+          --exclude-tags experimental \
+          --exit \
+          --save accessibility-results.json
+
+    - name: Upload accessibility results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: accessibility-results
+        path: accessibility-results.json
+        retention-days: 30

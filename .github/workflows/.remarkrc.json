@@ -1,0 +1,27 @@
+{
+  "plugins": [
+    "remark-preset-lint-consistent",
+    "remark-preset-lint-recommended",
+    "remark-preset-lint-markdown-style-guide",
+    ["remark-lint-maximum-line-length", 100],
+    ["remark-lint-list-item-indent", "space"],
+    ["remark-lint-emphasis-marker", "*"],
+    ["remark-lint-strong-marker", "*"],
+    ["remark-lint-unordered-list-marker-style", "-"],
+    ["remark-lint-ordered-list-marker-style", "."],
+    ["remark-lint-heading-style", "atx"],
+    ["remark-lint-fenced-code-marker", "`"],
+    ["remark-lint-fenced-code-flag", true],
+    ["remark-lint-file-extension", "md"],
+    ["remark-lint-final-newline", true],
+    ["remark-lint-hard-break-spaces", true],
+    ["remark-lint-no-duplicate-headings", true],
+    ["remark-lint-no-empty-url", true],
+    ["remark-lint-no-heading-punctuation", true],
+    ["remark-lint-no-inline-padding", true],
+    ["remark-lint-no-shortcut-reference-image", true],
+    ["remark-lint-no-shortcut-reference-link", true],
+    ["remark-lint-no-undefined-references", true],
+    ["remark-lint-no-unused-definitions", true]
+  ]
+}

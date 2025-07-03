@@ -1,5 +1,0 @@
-{
-  "extends": "markdownlint-config-standard",
-  "MD013": false,
-  "MD026": { "punctuation": ".,;:" }
-}

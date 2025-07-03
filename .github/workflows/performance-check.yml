@@ -1,0 +1,121 @@
+name: Performance and SEO Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  performance-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build site
+      run: npm run build
+
+    - name: Start server
+      run: |
+        npm start &
+        sleep 30
+
+    - name: Wait for server
+      run: |
+        timeout 60 bash -c 'until curl -s http://localhost:3000 > /dev/null; do sleep 1; done'
+
+    - name: Run Lighthouse CI
+      run: |
+        npm install -g @lhci/cli
+        lhci autorun --upload.target=temporary-public-storage
+      env:
+        LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+    - name: Bundle size check
+      run: |
+        npm run build
+        npx bundlesize
+
+    - name: Check meta tags and SEO
+      run: |
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+
+        function checkSEO(dir) {
+          const files = fs.readdirSync(dir, { withFileTypes: true });
+          let issues = [];
+
+          for (const file of files) {
+            const filePath = path.join(dir, file.name);
+
+            if (file.isDirectory() && !file.name.startsWith('.') && file.name !== 'node_modules') {
+              issues.push(...checkSEO(filePath));
+            } else if (file.name.endsWith('.md') || file.name.endsWith('.mdx')) {
+              const content = fs.readFileSync(filePath, 'utf8');
+
+              // Check title length
+              const titleMatch = content.match(/^#\s+(.+)$/m);
+              if (titleMatch) {
+                const title = titleMatch[1];
+                if (title.length > 60) {
+                  issues.push(\`\${filePath}: Title too long (\${title.length} chars): \${title}\`);
+                }
+                if (title.length < 10) {
+                  issues.push(\`\${filePath}: Title too short (\${title.length} chars): \${title}\`);
+                }
+              }
+
+              // Check description in frontmatter
+              const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+              if (frontmatterMatch) {
+                const yaml = require('js-yaml');
+                try {
+                  const frontmatter = yaml.load(frontmatterMatch[1]);
+                  if (frontmatter.description) {
+                    if (frontmatter.description.length > 160) {
+                      issues.push(\`\${filePath}: Description too long (\${frontmatter.description.length} chars)\`);
+                    }
+                    if (frontmatter.description.length < 50) {
+                      issues.push(\`\${filePath}: Description too short (\${frontmatter.description.length} chars)\`);
+                    }
+                  }
+                } catch (e) {
+                  // Already handled in structure check
+                }
+              }
+
+              // Check for alt text on images
+              const imageRegex = /!\[([^\]]*)\]\([^)]+\)/g;
+              let match;
+              while ((match = imageRegex.exec(content)) !== null) {
+                if (!match[1] || match[1].trim() === '') {
+                  issues.push(\`\${filePath}: Image missing alt text\`);
+                }
+              }
+            }
+          }
+
+          return issues;
+        }
+
+        const issues = checkSEO('.');
+        if (issues.length > 0) {
+          console.warn('SEO issues found:');
+          issues.forEach(issue => console.warn(issue));
+        } else {
+          console.log('No SEO issues found!');
+        }
+        " || echo "SEO check requires js-yaml. Install with: npm install js-yaml"

@@ -1,0 +1,41 @@
+name: Spelling and Grammar Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  spelling-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install cSpell
+      run: npm install -g cspell
+
+    - name: Run spelling check
+      run: |
+        cspell "**/*.{md,mdx,tsx,ts,js,jsx}" \
+          --no-progress \
+          --show-context \
+          --show-suggestions \
+          --config .github/workflows/cspell.json
+
+    - name: Vale prose linting
+      uses: errata-ai/vale-action@reviewdog
+      with:
+        files: '**/*.{md,mdx}'
+        vale_flags: '--config=.github/workflows/.vale.ini'
+        fail_on_error: true
+      env:
+        GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

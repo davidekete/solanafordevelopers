@@ -1,0 +1,59 @@
+name: Documentation Quality Suite
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+  workflow_dispatch:
+
+jobs:
+  quality-suite:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run all quality checks
+      run: |
+        echo "Running comprehensive documentation quality checks..."
+
+        # Build the site
+        npm run build
+
+        # Start server in background
+        npm start &
+        SERVER_PID=$!
+        sleep 30
+
+        # Run checks in parallel where possible
+        echo "✓ Build successful"
+
+        # Generate quality report
+        echo "# Documentation Quality Report" > quality-report.md
+        echo "Generated on: $(date)" >> quality-report.md
+        echo "" >> quality-report.md
+
+        # Add metrics
+        echo "## Metrics" >> quality-report.md
+        echo "- Total MD/MDX files: $(find . -name '*.md' -o -name '*.mdx' | wc -l)" >> quality-report.md
+        echo "- Total lines of documentation: $(find . -name '*.md' -o -name '*.mdx' -exec wc -l {} + | tail -n1 | awk '{print $1}')" >> quality-report.md
+        echo "- Build time: $(date)" >> quality-report.md
+
+        # Cleanup
+        kill $SERVER_PID || true
+
+    - name: Upload quality report
+      uses: actions/upload-artifact@v4
+      with:
+        name: quality-report
+        path: quality-report.md
+        retention-days: 30

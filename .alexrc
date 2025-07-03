@@ -1,4 +1,0 @@
-{
-  "allow": ["whitelist"],
-  "plugins": { "retext-equality": { "noBinary": true } }
-}

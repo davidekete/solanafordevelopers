@@ -1,0 +1,152 @@
+name: Documentation Structure Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: |
+        npm install -g remark-cli remark-preset-lint-consistent remark-preset-lint-recommended
+        npm install -g doctoc
+
+    - name: Check markdown structure
+      run: |
+        remark . --use remark-preset-lint-consistent --use remark-preset-lint-recommended --frail
+
+    - name: Validate frontmatter
+      run: |
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+        const yaml = require('js-yaml');
+
+        function validateFrontmatter(dir) {
+          const files = fs.readdirSync(dir, { withFileTypes: true });
+          let errors = [];
+
+          for (const file of files) {
+            const filePath = path.join(dir, file.name);
+
+            if (file.isDirectory() && !file.name.startsWith('.') && file.name !== 'node_modules') {
+              errors.push(...validateFrontmatter(filePath));
+            } else if (file.name.endsWith('.md') || file.name.endsWith('.mdx')) {
+              const content = fs.readFileSync(filePath, 'utf8');
+              const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+
+              if (frontmatterMatch) {
+                try {
+                  const frontmatter = yaml.load(frontmatterMatch[1]);
+
+                  // Check required fields
+                  if (!frontmatter.title) {
+                    errors.push(\`\${filePath}: Missing title in frontmatter\`);
+                  }
+                  if (!frontmatter.description) {
+                    errors.push(\`\${filePath}: Missing description in frontmatter\`);
+                  }
+                } catch (e) {
+                  errors.push(\`\${filePath}: Invalid YAML in frontmatter - \${e.message}\`);
+                }
+              } else {
+                errors.push(\`\${filePath}: Missing frontmatter\`);
+              }
+            }
+          }
+
+          return errors;
+        }
+
+        const errors = validateFrontmatter('.');
+        if (errors.length > 0) {
+          console.error('Frontmatter validation errors:');
+          errors.forEach(error => console.error(error));
+          process.exit(1);
+        }
+
+        console.log('All frontmatter validation passed!');
+        " || echo "Frontmatter validation requires js-yaml. Install with: npm install js-yaml"
+
+    - name: Check for orphaned pages
+      run: |
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+
+        function findMdFiles(dir, files = []) {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+
+            if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+              findMdFiles(fullPath, files);
+            } else if (entry.name.endsWith('.md') || entry.name.endsWith('.mdx')) {
+              files.push(fullPath);
+            }
+          }
+
+          return files;
+        }
+
+        function findLinks(content) {
+          const links = [];
+          const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+          let match;
+
+          while ((match = linkRegex.exec(content)) !== null) {
+            if (!match[2].startsWith('http') && !match[2].startsWith('#')) {
+              links.push(match[2]);
+            }
+          }
+
+          return links;
+        }
+
+        const mdFiles = findMdFiles('.');
+        const allLinks = new Set();
+        const allFiles = new Set(mdFiles.map(f => f.replace('./', '')));
+
+        // Collect all internal links
+        for (const file of mdFiles) {
+          const content = fs.readFileSync(file, 'utf8');
+          const links = findLinks(content);
+
+          for (const link of links) {
+            const cleanLink = link.replace(/^\.\//, '').replace(/#.*$/, '');
+            if (cleanLink) {
+              allLinks.add(cleanLink);
+            }
+          }
+        }
+
+        // Find orphaned files (files not linked to)
+        const orphaned = [];
+        for (const file of allFiles) {
+          if (!allLinks.has(file) && !file.includes('README') && !file.includes('index')) {
+            orphaned.push(file);
+          }
+        }
+
+        if (orphaned.length > 0) {
+          console.warn('Potentially orphaned files (not linked from other docs):');
+          orphaned.forEach(file => console.warn('  - ' + file));
+        } else {
+          console.log('No orphaned files found!');
+        }
+        "

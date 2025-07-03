@@ -41,16 +41,11 @@
     "bundler",
     "minify",
     "gzip",
-    "brotli"
+    "brotli",
+    "solana",
+    "lamports"
   ],
-  "flagWords": [
-    "hte",
-    "teh",
-    "recieve",
-    "seperate",
-    "occured",
-    "occurence"
-  ],
+  "flagWords": ["hte", "teh", "recieve", "seperate", "occured", "occurence"],
   "ignorePaths": [
     "node_modules/**",
     ".next/**",

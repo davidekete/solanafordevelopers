@@ -1,0 +1,10 @@
+matrix:
+  - name: Markdown
+    sources:
+      - docs/**/*.md
+    dictionary:
+      wordlists:
+        - .wordlist.txt           # custom terms, acronyms, proper nouns
+    aspell:
+      lang: en
+      mode: markdown

@@ -8,6 +8,7 @@
     "program-handler",
     "program-entrypoint",
     "clusters",
-    "deploy-counter"
+    "deploy-counter",
+    "anchor-rewrite"
   ]
 }

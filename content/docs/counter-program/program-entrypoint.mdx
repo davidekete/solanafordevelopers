@@ -16,6 +16,7 @@ Here’s how to implement your program’s entrypoint:
 
 <Steps>
 <Step>
+### Importing macros
 In your `lib.rs` file, import the required macros and declare your entrypoint function:
 
 ```rust title="Rust"
@@ -35,7 +36,7 @@ The macro registers `process_instruction` as the function that the Solana runtim
 </Step>
 
 <Step>
-
+### Defining `process_instructions`
 Next, define the `process_instruction` function. Its role is to decode the incoming instruction data, determine which instruction it represents, and dispatch the call to the appropriate handler (e.g., `process_initialize_counter` or `process_increment`).
 
 For example:

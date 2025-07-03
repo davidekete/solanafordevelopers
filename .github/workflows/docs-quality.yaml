@@ -30,7 +30,7 @@ jobs:
       - name: Set up Vale
         uses: errata-ai/vale-action@v2
         with:
-          version: '3.5.1'   # pin or omit for "latest"
+          version: '3.12.0'   # pin or omit for "latest"
 
       # Other linters
       - name: Install markdownlint, alex, PySpelling

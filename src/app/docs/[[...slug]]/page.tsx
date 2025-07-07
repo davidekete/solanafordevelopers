@@ -8,7 +8,7 @@ import {
 import { notFound } from "next/navigation";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/mdx-components";
-import GithubIcon from "../../../icons/github.svg";
+// import GithubIcon from "../../../icons/github.svg";
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;

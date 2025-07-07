@@ -8,6 +8,7 @@ import {
 import { notFound } from "next/navigation";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/mdx-components";
+import GithubIcon from "../../../icons/github.svg";
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -20,7 +21,11 @@ export default async function Page(props: {
 
   return (
     <DocsPage
-      tableOfContent={{ style: "clerk", single: false }}
+      tableOfContent={{
+        style: "clerk",
+        single: false,
+        footer: <EditOnGithub path={page.file.path} />,
+      }}
       lastUpdate={new Date(page.data.lastModified as Date)}
       toc={page.data.toc}
       full={page.data.full}
@@ -41,6 +46,24 @@ export default async function Page(props: {
 
 export async function generateStaticParams() {
   return source.generateParams();
+}
+
+function EditOnGithub({ path }: { path: string }) {
+  const href = `https://github.com/davidekete/solanafordevelopers/blob/main/content/docs/${
+    path.startsWith("/") ? path.slice(1) : path
+  }`;
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
+    >
+      {/* <GithubIcon width={18} height={18} /> */}
+      <span>Edit on GitHub</span>
+    </a>
+  );
 }
 
 export async function generateMetadata(props: {

@@ -23,9 +23,10 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction,
     sysvar::Sysvar,
 };
+
+use solana_system_interface;
 ```
 
 Here’s a breakdown of what each import does:
@@ -39,7 +40,7 @@ Here’s a breakdown of what each import does:
 - `Pubkey`: A struct representing a Solana public key. Used to identify accounts and programs on-chain.
 - `Rent`: Provides access to Solana’s rent rules, including how much lamport balance an account needs to be rent-exempt.
 - `Sysvar`: A module that gives access to system-defined variables (like Rent), which are read-only and passed into the program for context.
-- `system_instruction`: A helper module with functions to construct instructions for the System Program, like creating a new account.
+- `solana_system_interface`: A helper module with functions to construct instructions for the System Program, like creating a new account.
 
 ## Handler arguments
 

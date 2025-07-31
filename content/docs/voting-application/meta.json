@@ -1,3 +1,4 @@
 {
-  "title": "Voting Application"
+  "title": "Voting Application",
+  "pages": ["program-setup", "voting-state", "account-discriminators"]
 }

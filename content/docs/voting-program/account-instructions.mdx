@@ -1,0 +1,67 @@
+---
+title: Defining Program Instructions
+description: Learn how to define program instructions for complex payloads
+icon: Command
+---
+
+Following the requirements for your voting program, it will have three instructions:
+
+1. `CreatePoll`
+2. `CastVote`
+3. `ClosePoll`
+
+You can define these instructions in your `instructions.rs` file like so:
+
+```rust title="Rust"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::program_error::ProgramError;
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub enum PollInstructions {
+    CreatePoll {
+        start_slot: u64,
+        end_slot: u64,
+        poll_description: String,
+        poll_option_names: Vec<String>,
+    },
+
+    CastVote {
+        option_id: u8,
+    },
+
+    ClosePoll,
+}
+```
+
+In your counter_program you implemented a helper function `unpack` which
+
+split the first byte to get the instruction variant, matches the variant and parses any additional parameters from the remaining bytes, and returns the corresponding enum variant.
+
+The payload in the counter program was trivial; only a single `u64` on one variant and no data on the other. Therefore, hand-parsing it was a short, readable, and slightly cheaper in compute way to handle incoming transaction data.
+
+However, you have to take a different approach here because these instructions have complex payloads (`CreatePoll` carries a `u64, u64, String, Vec<String>`). Hand-parsing it would mean writing and maintaining length-prefix logic for the vector and each string.
+
+An alternative and argueably better way to parse incoming instruction data in case like this (Complex payloads) would be using Borsh. With Borsh, the enum variant tag + all fields are serialized/deserialized correctly with one line.
+
+Like so:
+
+```rust title="Rust"
+impl PollInstructions {
+    pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
+        Self::try_from_slice(input).map_err(|_| ProgramError::InvalidInstructionData)
+    }
+
+    pub fn pack(&self) -> Vec<u8> {
+        borsh::to_vec(self).expect("Borsh serialization cannot fail")
+    }
+}
+```
+
+The `unpack` function calls `BorshDeserialize::try_from_slice`, which reads the enum **variant index** (based on declaration order), Then decodes each field for that variant (e.g., `u64`, `String`, `Vec<String>`) to deserialize the incoming instruction data into a `PollInstructions` value.
+
+The `pack` function calls `BorshSerialize::to_vec`, which writes the enum’s variant index followed by its fields to serialize a `PollInstructions` value to bytes you can place in an instruction’s `data` field. The `pack` function is typically used on the client side but you need it for (Spoiler alert) when you write automated tests for your program.
+
+### Trade-offs to keep in mind
+
+- **Application Binary Interface (ABI) stability:** Borsh encodes the enum variant index based on declaration order. If you reorder variants, you change the wire format. If you choose Borsh, **freeze the order** (and ideally add tests that assert specific byte layouts).
+- **Transaction size & compute.** Borsh is efficient, but variable-length fields (like many strings) can bloat instruction data. With hand-parsing you can design a tighter, fixed layout if you need to.

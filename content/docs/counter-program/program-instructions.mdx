@@ -30,7 +30,7 @@ The first byte in the buffer identifies the index of the instruction to execute 
 To convert the bytes in the enum variant and instruction data, it is common to implement a helper function, usually called `unpack`. The helper function:
 
 - Splits the first byte to get the instruction variant,
-- Matches on the variant and parses any additional parameters from the remaining bytes, and
+- Matches the variant and parses any additional parameters from the remaining bytes, and
 - Returns the corresponding enum variant.
 
 You can implement it like so:

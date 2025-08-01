@@ -6,7 +6,7 @@ icon: Database
 
 Program state refers to data that is associated with and can be manipulated by your program; it is essentially your program’s database.
 
-You need to define program state when writing Solana programs because Solana programs are stateless by default — they don't store data between transactions. If your program needs to remember anything (e.g. user balances, votes, ownership, or config settings), you must explicitly define and manage that data.
+You need to define program state when writing Solana programs because Solana programs are stateless by default, meaning that they don't store data between transactions. If your program needs to remember anything (e.g. user balances, votes, ownership, or config settings), you must explicitly define and manage that data.
 
 Program state is defined using Rust structs. The `struct` exists only at the code level, helping you understand and manipulate the data while writing the program, but it’s just a logical representation. Solana itself doesn’t know what a "struct" is.
 
@@ -16,7 +16,7 @@ On-chain, Solana accounts don’t store data as structs, they store raw bytes. T
 
 ### Creating your counter program’s state
 
-Start by creating [`state.rs`](http://state.rs) file in your `src` folder for modularity. In your file, create a `CounterAccount` struct with a `u64` `count` property.
+Start by creating `state.rs` file in your `src` folder for modularity. In your file, create a `CounterAccount` struct with a `u64` `count` property.
 
 Like so:
 

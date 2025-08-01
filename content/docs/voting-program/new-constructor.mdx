@@ -1,0 +1,54 @@
+---
+title: Adding a new constructor
+description: Add
+icon: Plus
+---
+
+Implementing a `new` constructor on the struct helps you enforce all invariants, length checks, zero-padding, and the discriminator before the account ever touches chain storage.
+
+Start by validating inputs. The slice you receive for `description` can be any length, so check it before you allocate. If the caller tries to pass more than `MAX_DESC_LEN` bytes, return `ProgramError::InvalidInstructionData`; failing early protects the program from buffer overruns and wasted compute.
+
+Next, pad the description to a constant-size buffer. Allocate a zero-filled `[u8; MAX_DESC_LEN]`, then copy the caller’s bytes into the front of that array. This single copy satisfies two invariants: the array’s length never changes, which keeps the account’s on-chain size fixed, and the unused bytes remain deterministic zeros, which helps later diff-based audits.
+
+With validation and padding complete, build the struct. Like so:
+
+```rust title="src/poll.rs"
+impl Poll {
+    pub const SIZE: usize = {...};
+
+    pub fn new(
+        creator: Pubkey,
+        start_slot: u64,
+        end_slot: u64,
+        description: &[u8],
+        options_cnt: u8,
+    ) -> Result<Self, ProgramError> {
+        let description_len = description.len();
+
+        if description_len > MAX_DESC_LEN {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+
+        // Allocate a zero-filled array whose size never changes
+        let mut padded_description = [0u8; MAX_DESC_LEN];
+
+        //Copy the user-supplied bytes into the front of that array
+        padded_description[..description_len].copy_from_slice(description);
+
+        Ok(Self {
+            discriminator: POLL_DISCRIMINATOR,
+            poll_creator: creator,
+            desc_len: description_len as u8,
+            poll_description: padded_description,
+            start_slot,
+            end_slot,
+            poll_stage: PollStage::Open,
+            options_count: options_cnt,
+        })
+    }
+
+    pub fn assert_valid(&self) -> Result<(), ProgramError> {...}
+}
+
+```
+Repeat the formula for `PollOption` and `VoteRecord`. With these constructors in place, every account your program touches is type-safe, size-accurate, and immune to stray bytes.

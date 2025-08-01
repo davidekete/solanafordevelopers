@@ -73,7 +73,7 @@ To define the accounts required by the instruction in your handler, you need to 
 
 In this case, you need three, so you need to call the `next_account_info` on the iterator three times. Solana doesn't use named parameters for accounts, just a flat list. Therefore, when your client sends a transaction and attaches accounts to it, it must pass them in the same order that your program expects. If the order is incorrect, the program may read the wrong account or fail at runtime.
 
-<Callout>
+<Callout title="Info">
 When using **Anchor**, it handles this automatically using named accounts, as long as you define them properly in your `#[derive(Accounts)]` struct.
 
 </Callout>
@@ -113,7 +113,7 @@ pub fn process_initialize_counter(
     }
 ```
 
-<Callout>
+<Callout title="Info">
 Here’s a list of [available variants for `ProgramError`](https://docs.rs/solana-program/latest/solana_program/program_error/enum.ProgramError.html#variants).
 
 </Callout>
@@ -137,7 +137,7 @@ You can append the code block below to the previous one to implement the logic w
 
 Once you have defined the space and calculated the rent, you create the counter account by invoking the System Program's `create_account` instruction.
 
-<Callout>
+<Callout title="Info">
 
 Calling a program (E.g, System Program from our program) from another program is known as a Cross-Program Invocation (CPI).
 

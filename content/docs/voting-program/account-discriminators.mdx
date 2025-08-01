@@ -1,0 +1,71 @@
+---
+title: Account Discriminators
+description: Fix the security issue associated with plain state using account discriminators
+icon: Divide
+---
+
+An account discriminator is a unique eight-byte tag derived from the account type’s name prefixed to every serialized account. It can be any eight bytes but it must be unique to each account owned by your program.
+
+The logic associated with using discrimators to prevent blind serialization is as follows → The moment your program loads an account, it first checks the tag (discriminator). If the tag matches the expected constant, deserialization proceeds; if not, the instruction fails immediately with `InvalidAccountData`. That single comparison eliminates type confusion and blocks the spoofing tricks described previously.
+
+## Adding discriminators to your accounts
+
+There are multiple ways you can add discriminators to your accounts but we will focus on a fairly simple pattern which is embedding a discriminator field in the account struct.
+
+<Callout title="Warning" type="warning">
+
+Ensure that every call that mutates the struct remembers **not** to overwrite the field storing the discriminator
+
+</Callout>
+
+Since the discriminator for each account is static (unless you’re upgrading your program version), you need to generate it and store it in a variable. You can generate it by hashing the account name using SHA-256 and using the first eight bytes as your discriminator. Alternatively, you can use any distinct 8-byte string to represent your discriminator.
+
+<Callout title="Info">
+
+Discriminators are eight bytes because 64 bits yield 2⁶⁴ collision-resistant tags yet add only one word of storage, keeping rent and compute costs negligible.
+
+</Callout>
+
+Here, we will use a readable ASCII strings for each of your account discriminators.
+
+For example:
+
+```rust title="Rust"
+pub const POLL_DISCRIMINATOR: [u8; 8] = *b"POLLv1__"; //in src/poll.rs
+pub const POLL_OPTION_DISCRIMINATOR: [u8; 8] = *b"OPTNv1__"; //in src/poll_option.rs
+pub const VOTE_RECORD_DISCRIMINATOR: [u8; 8] = *b"VOTEv1__"; //in src/vote_record.rs
+```
+
+Then, add the discriminator property to the account structs like so:
+
+```rust title="Rust"
+pub struct VoteRecord {
+    // [!code highlight]
+    pub discriminator: [u8; 8],
+    pub poll: Pubkey,
+    pub voter: Pubkey,
+    pub option_id: u8,
+}
+```
+
+Because Borsh serializes every field in declaration order, put the new `discriminator` field **first** in each struct. That way the tag occupies bytes 0-7, letting you verify it with a single slice comparison before you touch any other data.
+
+## Verifying the discriminator
+
+Before you manipulate an account’s data, always confirm that the eight bytes at the front match the constant you expect. Do this immediately after deserialization; a single equality check is cheap, and failing fast protects the rest of your logic from ever acting on the wrong layout or spoofed data.
+
+```rust title="src/poll.rs"
+impl Poll {
+    pub fn assert_valid(&self) -> Result<(), ProgramError> {
+        if self.discriminator != POLL_DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        Ok(())
+    }
+}
+```
+
+Every processor that later loads the account should call `assert_valid()` immediately after deserialisation. Do the same for `PollOption` and `VoteRecord`; each gets its own `assert_valid()` method that checks the tag against the corresponding constant. If the check fails, return `ProgramError::InvalidAccountData` and exit.
+
+Placing the discriminator first, reserving the extra eight bytes, writing it once at creation, and checking it on every read completes the pattern. Your program can now differentiate its three account types with a single, cheap comparison, closing the spoofing and hijacking holes we explored earlier while adding only one 64-bit word of storage to each account.

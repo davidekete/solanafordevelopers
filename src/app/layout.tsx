@@ -1,6 +1,6 @@
 import "./global.css";
 import { RootProvider } from "fumadocs-ui/provider";
-import { Inter, Geist } from "next/font/google";
+import { Inter, Geist, Space_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
 const inter = Inter({
@@ -12,11 +12,17 @@ const geist = Geist({
   variable: "--font-geist",
 });
 
+const spaceMono = Space_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "700"],
+});
+
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${inter.className} ${geist.variable}`}
+      className={`${inter.className} ${geist.variable} ${spaceMono.variable}`}
       suppressHydrationWarning
     >
       <body className="flex flex-col min-h-screen">

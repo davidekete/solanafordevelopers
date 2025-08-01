@@ -1,0 +1,4 @@
+{
+  "title": "Voting Program",
+  "pages": ["program-setup", "voting-state", "account-discriminators", "account-size"]
+}

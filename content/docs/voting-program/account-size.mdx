@@ -3,3 +3,47 @@ title: Calculating Account Size
 description: Learn how to calculate your account size properly for rent exemption
 icon: Ruler
 ---
+
+We’ve talked fair game about how the size of Solana accounts need to be known at creation time in order to calculate the minimum amount of lamports required to make the account rent exempt.
+
+In the last project, you calculated the space using:
+
+```rust title="Rust"
+let account_space = std::mem::size_of::<CounterAccount>();
+```
+
+`std::mem::size_of::<T>()` tells you how many bytes the struct occupies **in RAM on the host that compiles the program**, padding included. Borsh, by contrast, writes a packed stream with _no_ alignment padding. The two numbers match only when every field already aligns naturally, for example, the one-field `CounterAccount`.
+
+In your new structs the compiler slips in padding after odd-sized fields so that the next `u64` or `Pubkey` starts on an eight-byte boundary. `std::mem::size_of::<Poll>()` therefore comes back larger than the Borsh payload you will actually store. If you rely on that value you either waste rent by over-allocating or, worse, risk an under-allocation if the compiler’s padding strategy ever changes.
+
+The safe approach is to define an explicit constant that adds up the exact serialized bytes, i.e discriminator plus every field length, and use that constant whenever you create the account.
+
+For example, to calculate the size of the Poll account:
+
+```rust title="Rust"
+impl Poll {
+// [!code highlight]
+    pub const SIZE: usize = {
+        use std::mem::size_of;// [!code highlight]
+        size_of::<[u8; 8]>() +      // discriminator // [!code highlight]
+        size_of::<Pubkey>() +       // poll_creator // [!code highlight]
+        size_of::<u8>() +           // desc_len // [!code highlight]
+        MAX_DESC_LEN +              // poll_description // [!code highlight]
+        size_of::<u64>() +          // start_slot // [!code highlight]
+        size_of::<u64>() +          // end_slot // [!code highlight]
+        size_of::<u8>() +           // poll_stage (PollStage as u8) // [!code highlight]
+        size_of::<u8>() // options_count // [!code highlight]
+    }; // [!code highlight]
+
+    pub fn assert_valid(&self) -> Result<(), ProgramError> {
+        if self.discriminator != POLL_DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        Ok(())
+    }
+}
+
+```
+
+Implement the size constant for the rest of your accounts. You now have a reliable SIZE constant for every account; the next step is to create the data itself in a single, fool-proof call.

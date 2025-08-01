@@ -5,6 +5,7 @@
     "voting-state",
     "account-discriminators",
     "account-size",
-    "new-constructor"
+    "new-constructor",
+    "account-instructions"
   ]
 }

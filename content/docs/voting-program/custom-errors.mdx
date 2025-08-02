@@ -1,0 +1,47 @@
+---
+title: Creating Custom Errors
+description: Learn how to create custom errors for your program
+icon: Ban
+---
+
+In the counter program, you used errors provided by `solana_program`'s `ProgramError` enum that provides comprehensive but somewhat generic errors. These errors may work for some programs; however, some programs, for example, this voting program, may require more specific errors.
+
+For example, you cannot use `ProgramError::InvalidInstructionData` to handle scenarios where the voting window is closed or when the client passes less than 2 poll options, you need more descriptive errors.
+
+To create custom errors, define a program-specific error enum and convert it to `ProgramError` so you can return precise failures from your instructions.
+
+Like so:
+
+```rust title="src/errors.rs"
+use solana_program::program_error::ProgramError;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum PollError {
+    #[error("You need at least 2 poll options")]
+    NotEnoughPollOptions,
+
+    #[error("End Slot cannot be less than start slot")]
+    InvalidSlotTime,
+
+    #[error("Voting window for this poll has closed")]
+    VotingWindowClosed,
+
+    #[error("Voting window for this poll is still open")]
+    VotingWindowStillOpen,
+
+    #[error("This poll has been closed")]
+    PollAlreadyClosed,
+
+    #[error("Input data exceeds max length")]
+    InvalidDataLength,
+}
+
+impl From<PollError> for ProgramError {
+    fn from(value: PollError) -> Self {
+        ProgramError::Custom(value as u32)
+    }
+}
+```
+
+`thiserror::Error` gives each variant a readable message for logs and tests. Now you can use this enum as you’d `ProgramError`.

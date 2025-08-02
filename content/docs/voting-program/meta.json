@@ -6,6 +6,10 @@
     "account-discriminators",
     "account-size",
     "new-constructor",
-    "account-instructions"
-  ]
+    "account-instructions",
+    "custom-errors",
+    "pda",
+    "instruction-handlers"
+  ],
+  "defaultOpen": true
 }

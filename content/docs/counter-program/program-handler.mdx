@@ -44,8 +44,6 @@ Here’s a breakdown of what each import does:
 
 ## Handler arguments
 
-Handler functions usually require 2-3 arguments to execute their logic.
-
 The first argument, which is common to most handler functions, is a `program_id`, which is of type `Pubkey`. This is the public key of the deployed program itself. You need this for these scenarios:
 
 - Creating accounts that the program should own: Recall that **only the account owner can modify their data**. Thus, when creating accounts that your program interacts with, such as the account that holds the counter data, your program must be the owner.

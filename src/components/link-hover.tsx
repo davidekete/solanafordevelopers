@@ -25,7 +25,7 @@ export function LinkPrev({
   ...props
 }: LinkProps & { children: ReactNode }) {
   return (
-    <div className="ui">
+    <>
       <HoverCard>
         <HoverCardTrigger asChild>
           <Link {...props}>{children} </Link>
@@ -38,7 +38,7 @@ export function LinkPrev({
           {getTooltipContent(props.href)}
         </HoverCardContent>
       </HoverCard>
-    </div>
+    </>
   );
 }
 
@@ -56,7 +56,10 @@ export function Term({ term }: { term: string }) {
 }
 
 function getTooltipContent(href?: Url, textContent?: string) {
-  if (!href) return <div className="text-sm opacity-70">{textContent ?? "No preview"}</div>;
+  if (!href)
+    return (
+      <div className="text-sm opacity-70">{textContent ?? "No preview"}</div>
+    );
 
   const hrefStr = href.toString();
 

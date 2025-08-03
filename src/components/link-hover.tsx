@@ -20,7 +20,7 @@ import { GlossaryMeaning } from "./GlossaryMeaning";
 import { isInternalDocs, isInternalUrl } from "../lib/config/internalLinks";
 import { ExternalLinkPreview } from "./ExternalLinkPreview";
 
-export function ModLink({
+export function LinkPrev({
   children,
   ...props
 }: LinkProps & { children: ReactNode }) {

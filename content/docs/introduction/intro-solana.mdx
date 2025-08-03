@@ -3,6 +3,8 @@ title: Introduction to Solana
 description: Learn about the Solana blockchain, its architecture, and how to get started as a developer.
 icon: BrickWall
 ---
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
+
 
 ## What is a blockchain?
 
@@ -63,52 +65,52 @@ The ever-growing sequence of blocks (slots) committed to Solana. Each block refe
 
 The native token used to pay transaction fees, earn staking rewards, and secure the network via Proof of Stake.
 
-[More on SOL](/developers/docs/intro-to-sol/)
+<LinkPrev href={"/developers/docs/intro-to-sol/"}>More on SOL</LinkPrev>
 
 ### Runtime
 
 Solana’s parallel execution engine. It verifies BPF bytecode, schedules transactions across cores, and enforces account ownership & rent rules.
 
-[More on the runtime](/developers/docs/runtime/)
+<LinkPrev href={"/developers/docs/runtime/"}>More on the runtime</LinkPrev>
 
 ### Validators
 
 Nodes that stake SOL, maintain the ledger, vote on blocks, and earn rewards. Validators may be run by individuals, companies, or data centers.
 
-[More on validators](/developers/docs/validators/)
+<LinkPrev href={"/developers/docs/validators/"}>More on validators</LinkPrev>
 
 ### Accounts
 
 Fixed-size data buffers that store program state or user balances. Every account has an owner (a program) and an optional SOL balance used for rent.
 
-[More on accounts](/developers/docs/accounts/)
+<LinkPrev href={"/developers/docs/accounts/"}>More on accounts</LinkPrev>
 
 ### Transactions
 
 Atomic bundles of one or more instructions plus the set of accounts those instructions touch. Transactions are signed, forwarded, and executed in a single block.
 
-[More on transactions](/developers/docs/transactions/)
+<LinkPrev href={"/developers/docs/transactions/"}>More on transactions</LinkPrev>
 
 ### Slots & Blocks
 
 Time on Solana is divided into _slots_ (~400 ms). A leader validator produces a block each slot, containing the executed transactions for that interval.
 
-[More on slots & blocks](/developers/docs/blocks/)
+<LinkPrev href={"/developers/docs/blocks/"}>More on slots & blocks</LinkPrev>
 
 ### Programs
 
 Executable BPF binaries deployed on-chain. Users invoke programs by including their address in a transaction instruction.
 
-[More on programs](/developers/docs/programs/)
+<LinkPrev href={"/developers/docs/programs/"}>More on programs</LinkPrev>
 
 ## Further reading
 
-- [Solana Whitepaper](https://solana.com/solana-whitepaper.pdf)
-- [Anatoly Yakovenko’s original PoH blog post](https://solana.com/news/proof-of-history)
-- [Solana Docs – Under the Hood](/developers/docs/how-solana-works/)
+- <LinkPrev href={"https://solana.com/solana-whitepaper.pdf"}>Solana Whitepaper</LinkPrev>
+- <LinkPrev href={"https://solana.com/news/proof-of-history"}>Anatoly Yakovenko’s original PoH blog post</LinkPrev>
+- <LinkPrev href={"/developers/docs/how-solana-works/"}>Solana Docs – Under the Hood</LinkPrev>
 
 _Know of a community resource that helped you? Edit this page and add it!_
 
 ## Related tutorials
 
-- [Building your first Solana dapp with Anchor](/developers/tutorials/anchor-time/) – Deploy a simple counter program and interact with it from a React front end.
+- <LinkPrev href={"/developers/tutorials/anchor-time/"}>Building your first Solana dapp with Anchor</LinkPrev> – Deploy a simple counter program and interact with it from a React front end.

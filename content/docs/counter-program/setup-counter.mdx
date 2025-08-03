@@ -5,6 +5,8 @@ icon: Settings
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
+
 
 Here, you will scaffold a new Rust project for your counter program.
 
@@ -32,8 +34,8 @@ cargo add solana-program@2.3.0 solana-system-interface@1.0.0 borsh
 
 The dependencies you installed with the command above include:
 
-- [`solana-program`](https://crates.io/crates/solana-program): This crate includes the core runtime API for writing Solana programs. You need it to access Solana-specific types, macros, and functions required to write and run programs on-chain.
-- [`solana-system-interface`](https://crates.io/crates/solana-system-interface): This crate contains instructions and constructors for interacting with the [System program](https://docs.solanalabs.com/runtime/programs#system-program). You need it to create new accounts, allocate account data, assign accounts to owning programs, etc.
-- [`borsh`](https://crates.io/crates/borsh): This crate provides a fast and compact binary serialization format. You need it to serialize and deserialize instruction data and account state for efficient storage and communication within your program.
+- <LinkPrev href={"https://crates.io/crates/solana-program"}>`solana-program`</LinkPrev>: This crate includes the core runtime API for writing Solana programs. You need it to access Solana-specific types, macros, and functions required to write and run programs on-chain.
+- <LinkPrev href={"https://crates.io/crates/solana-system-interface"}>`solana-system-interface`</LinkPrev>: This crate contains instructions and constructors for interacting with the <LinkPrev href={"https://docs.solanalabs.com/runtime/programs#system-program"}>System program</LinkPrev>. You need it to create new accounts, allocate account data, assign accounts to owning programs, etc.
+- <LinkPrev href={"https://crates.io/crates/borsh"}>`borsh`</LinkPrev>: This crate provides a fast and compact binary serialization format. You need it to serialize and deserialize instruction data and account state for efficient storage and communication within your program.
 
 Now that you have set up your program dependencies, you are ready to define your program’s state.

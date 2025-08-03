@@ -5,6 +5,8 @@ icon: Wrench
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
+
 
 Follow this guide to install all the dependencies required to build Solana programs.
 
@@ -22,9 +24,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 <Callout title="Info">
-  If you’re using a Windows machine, consider these [alternative methods for
-  installing
-  Rust](https://forge.rust-lang.org/infra/other-installation-methods.html).
+  If you’re using a Windows machine, consider these <LinkPrev href={"https://forge.rust-lang.org/infra/other-installation-methods.html"}>alternative methods for installing Rust</LinkPrev>.
 </Callout>
 </Step>
 

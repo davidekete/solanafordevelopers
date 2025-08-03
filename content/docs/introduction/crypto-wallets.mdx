@@ -4,6 +4,8 @@ description: Deep dive on crypto wallets and how they work. You can skip this pa
 icon: WalletMinimal
 ---
 
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
+
 Crypto wallets are tools that allow you to manage your cryptocurrencies on a blockchain. A common misconception about crypto wallets is that they store cryptocurrencies like traditional wallets store money. This is not the case.
 
 Rather, they store the security keys required to access and manage your cryptocurrency. They also provide an interface that allows you to interact with and authorize transactions on a blockchain. Similar to an online banking app in traditional finance.
@@ -37,7 +39,7 @@ There are two main types of crypto wallets: Cold and hot.
 
 Cold wallets are wallets that are not connected to the internet. They are more expensive and less convenient to use than hot wallets. However, they provide more security and are less prone to online attacks.
 
-Examples of cold wallets are **hardware wallets** like [Ledger](https://www.ledger.com/) and [Trezor](https://trezor.io/) and paper wallets, which are physical locations where the private and public keys are written down or printed.
+Examples of cold wallets are **hardware wallets** like <LinkPrev href={"https://www.ledger.com/"}>Ledger</LinkPrev> and <LinkPrev href={"https://trezor.io/"}>Trezor</LinkPrev> and paper wallets, which are physical locations where the private and public keys are written down or printed.
 
 ### Hot wallets
 
@@ -45,39 +47,39 @@ Hot wallets are wallets connected to the internet. They are cheaper, more conven
 
 However, they are more prone to online attacks and hacks than cold wallets. Examples include,
 
-- **Browser-based wallets**: Browser-based wallets exist as browser extensions and offer seamless interaction with dApps. Examples include [Phantom Wallet](https://phantom.app) for Solana and [Metamask](https://metamask.io/) for Ethereum and EVM chains.
-- **Mobile Wallets**: Mobile wallets exist as mobile phone apps ideal for on-the-go transactions. Some browser-based wallets also exist as mobile wallets and vice-versa. Examples of mobile wallets include [Trust Wallet](https://trustwallet.com/?utm_source=cryptwerk) and [Coinbase Wallet](https://www.coinbase.com/wallet).
-- **Desktop Wallets**: Desktop wallets exist as desktop apps. They are usually more feature-rich than the rest. Examples include the [Exodus wallet](https://www.exodus.com/).
+- **Browser-based wallets**: Browser-based wallets exist as browser extensions and offer seamless interaction with dApps. Examples include <LinkPrev href={"https://phantom.app"}>Phantom Wallet</LinkPrev> for Solana and <LinkPrev href={"https://metamask.io/"}>Metamask</LinkPrev> for Ethereum and EVM chains.
+- **Mobile Wallets**: Mobile wallets exist as mobile phone apps ideal for on-the-go transactions. Some browser-based wallets also exist as mobile wallets and vice-versa. Examples of mobile wallets include <LinkPrev href={"https://trustwallet.com/"}>Trust Wallet</LinkPrev> and <LinkPrev href={"https://www.coinbase.com/wallet"}>Coinbase Wallet</LinkPrev>.
+- **Desktop Wallets**: Desktop wallets exist as desktop apps. They are usually more feature-rich than the rest. Examples include the <LinkPrev href={"https://www.exodus.com/"}>Exodus wallet</LinkPrev>.
 
 You have now explored the different types of wallets. In the next section, you will set up a hot crypto wallet.
 
 ## Setting up a crypto wallet
 
-For this tutorial, you will set up the browser version of Phantom Wallet. To install it, navigate to the [Phantom Wallet download page](https://phantom.app/download) and choose your browser.
+For this tutorial, you will set up the browser version of Phantom Wallet. To install it, navigate to the <LinkPrev href={"https://phantom.app/download"}>Phantom Wallet download page</LinkPrev> and choose your browser.
 
-![Screenshot 2024-11-19 at 9.34.07 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_9.34.07_PM.jpg)
+![Screenshot 2024-11-19 at 9.34.07 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_9.34.07_PM.jpg)
 
 Choosing a browser should take you to your browser’s web app store, where you can install Phantom Wallet as an extension.
 
 Once the installation is complete, open the Phantom Wallet extension and click the “**Create a new wallet**” button, as shown in the image below.
 
-![Screenshot 2024-11-19 at 2.53.30 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_2.53.30_PM.jpg)
+![Screenshot 2024-11-19 at 2.53.30 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_2.53.30_PM.jpg)
 
 Clicking the button will provide you with 2 wallet creation options, “Continue with Email” and “Create a seed phrase wallet”. Select the “**Create a seed phrase wallet**” option.
 
-![Screenshot 2024-11-19 at 3.39.24 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.39.24_PM.jpg)
+![Screenshot 2024-11-19 at 3.39.24 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.39.24_PM.jpg)
 
 Next, you will be prompted to create a password that you will use to unlock the wallet extension.
 
-![Screenshot 2024-11-19 at 3.40.30 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.40.30_PM.jpg)
+![Screenshot 2024-11-19 at 3.40.30 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.40.30_PM.jpg)
 
 After confirming your password, you should see your 12-word secret recovery phrase. Copy the phrase and store it securely, as anyone with it can access your wallet.
 
-![Screenshot 2024-11-19 at 3.41.00 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.41.00_PM.jpg)
+![Screenshot 2024-11-19 at 3.41.00 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_3.41.00_PM.jpg)
 
 After saving your recovery phrase, click the “**Continue**” button to complete your wallet set-up. You can access your wallet by clicking the Phantom Wallet icon on your extension list.
 
-![Screenshot 2024-11-19 at 10.24.27 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_10.24.27_PM.jpg)
+![Screenshot 2024-11-19 at 10.24.27 PM.jpg](../../assets/introduction/crypto-wallets/Screenshot_2024-11-19_at_10.24.27_PM.jpg)
 
 Now that you have successfully set up your Solana Phantom wallet, you will need to fund it.
 

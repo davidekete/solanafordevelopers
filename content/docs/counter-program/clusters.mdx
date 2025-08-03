@@ -4,6 +4,8 @@ description: Primer on the different Solana clusters and their purposes.
 icon: Server
 ---
 
+import { Term } from "../../../src/components/link-hover";
+
 Solana operates on a network of validator nodes that maintain a shared ledger which make up the blockchain. But instead of having just one global environment, Solana organizes these networks into **clusters**.
 
 A cluster is a group of validators working together to maintain a single, coherent state. Each cluster has its own ledger history,
@@ -26,7 +28,7 @@ Once your program compiles and passes unit tests locally, you can move to **Devn
 
 Devnet mirrors Mainnet Beta’s economic parameters, such as transaction fees, rent, and stake, but uses free “dev SOL” and offers a faucet so you can top up at any time.
 
-On Devnet, you can faucet as much dev SOL as you like, but the network still charges every transaction a fee measured in lamports (just as Mainnet does). “Gas costs” refers to those fees: the protocol tallies the compute units and signatures your instruction consumes, multiplies them by the current fee rate, and deducts that amount from the fee-payer’s balance.
+On Devnet, you can faucet as much dev SOL as you like, but the network still charges every transaction a fee measured in <Term term="lamports"/> (just as Mainnet does). “Gas costs” refers to those fees: the protocol tallies the compute units and signatures your instruction consumes, multiplies them by the current fee rate, and deducts that amount from the fee-payer’s balance.
 
 ## Testnet cluster (Staging)
 

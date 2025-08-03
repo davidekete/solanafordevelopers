@@ -1,5 +1,5 @@
 "use client";
-import { cn } from "../../lib/cn";
+import { cn } from "../lib/cn";
 import { buttonVariants } from "fumadocs-ui/components/ui/button";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { type SyntheticEvent, useEffect, useState } from "react";

@@ -1,0 +1,37 @@
+export const glossary = {
+  UTXO: "Unspent Transaction Output. A coin model (used by Bitcoin) where each spend consumes old outputs and creates new ones—there are no account balances.",
+  "Proof of History":
+    "Solana’s cryptographic clock: a continuous chain of hashes that proves the order and spacing of events without relying on slow global time.",
+  State:
+    "Persistent on-chain data a program owns and updates (on Solana: the bytes inside accounts).",
+  "program loader":
+    "The on-chain runtime program that accepts your compiled code, marks an account executable, and manages upgrades (Solana’s BPF Loader).",
+  lamports: "Smallest unit of SOL. 1 SOL = 1,000,000,000 lamports.",
+  slot: "A fixed turn in the schedule when a chosen leader can produce a block.",
+  "block hash":
+    "Identifier of a recent block; transactions include it so they expire quickly and can’t be replayed later.",
+  validator:
+    "A node that verifies transactions, produces blocks when it’s leader, and votes in consensus.",
+  Node: "Any machine running the network software (validator, RPC, or archive).",
+  RPC: "Remote Procedure Call endpoint exposed by nodes so apps can read chain data and send transactions.",
+  "native SOL":
+    "SOL held directly in a system account. To use it like a token in token programs, you ‘wrap’ it as WSOL (an SPL token).",
+  SPL: "Solana Program Library—standard on-chain programs (like the Token program) and conventions apps can rely on.",
+  signer:
+    "An authority that proves control with a private key by producing a digital signature over a transaction or message.",
+  "entry point":
+    "The function the runtime calls to start your program (e.g., processing instruction data and accounts).",
+  QUIC: "A modern UDP-based transport used by Solana to handle high-throughput networking with built-in congestion control.",
+  leader:
+    "The validator selected for a given slot to bundle transactions and produce a block.",
+  eBPF: "A safe, sandboxed bytecode format. Solana programs compile to BPF/eBPF and run inside the validator’s VM.",
+  "Null Terminator":
+    "A zero byte (\\0) marking the end of a C-style string; not needed in formats like Borsh but common in low-level parsing.",
+  "Buffer Overflow attack":
+    "Writing beyond a buffer’s bounds to corrupt memory or hijack control flow; mitigated by safe languages and strict bounds checks.",
+  Compute:
+    "Metered work during execution, measured as Compute Units (CUs). Each transaction gets a compute budget.",
+  "Wire Format":
+    "The exact byte layout used on the network or between programs (e.g., how you serialize instruction data and account metas).",
+  ABI: "Application Binary Interface—the agreed rules for data layout and calling conventions so programs can interoperate (e.g., for CPI).",
+};

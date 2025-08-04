@@ -16,6 +16,7 @@
 //  *     --glob='content/**/*.mdx' \
 //  *     --debug
 //  */
+// node codemod-wrap-terms.mjs --glossary=../content/glossary.mdx --glob='../content/**/*.mdx' --debug
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { globSync } from "glob";

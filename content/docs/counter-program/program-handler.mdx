@@ -5,6 +5,7 @@ icon: SquareFunction
 ---
 
 import { Step, Steps } from "fumadocs-ui/components/steps";
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
 
 You need to define the business logic that your program will execute when the client invokes an instruction. Thus, you have to create an instruction handler function for each instruction your program supports.
 
@@ -112,8 +113,7 @@ pub fn process_initialize_counter(
 ```
 
 <Callout title="Info">
-Here’s a list of [available variants for `ProgramError`](https://docs.rs/solana-program/latest/solana_program/program_error/enum.ProgramError.html#variants).
-
+Here’s a list of <LinkPrev href={"https://docs.rs/solana-program/latest/solana_program/program_error/enum.ProgramError.html#variants"}>available variants for `ProgramError`</LinkPrev>
 </Callout>
 
 Next, you need to create the counter account by invoking the system program. However, before you can create an account, you need to specify the space (in bytes) to allocate to the account's data field. You calculate this space based on the size of the data the account will store. In this case, the counter only needs to store a single `u64` value, which occupies 8 bytes. You can use Rust’s `std::mem::size_of` to determine this at compile time.

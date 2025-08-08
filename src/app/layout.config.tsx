@@ -1,5 +1,4 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
-import SolanaIcon from "./icon.svg";
 import Image from "next/image";
 
 /**
@@ -13,7 +12,7 @@ export const baseOptions: BaseLayoutProps = {
   nav: {
     title: (
       <>
-        <Image alt="" width={18} height={18} src={SolanaIcon} />
+        <Image alt="" width={18} height={18} src={"/icons/solana.svg"} />
         Solana for Developers
       </>
     ),

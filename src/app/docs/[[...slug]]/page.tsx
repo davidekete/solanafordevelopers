@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/mdx-components";
 // import GithubIcon from "../../../icons/github.svg";
+import Image from "next/image";
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -66,7 +67,7 @@ function EditOnGithub({ path }: { path: string }) {
       rel="noreferrer noopener"
       className="pt-2 flex items-center gap-2 text-sm text-fd-muted-foreground hover:text-fd-accent-foreground/80"
     >
-      {/* <GithubIcon width={18} height={18} /> */}
+      <Image alt="" width={18} height={18} src={"/icons/github.svg"} />
       <span>Edit on GitHub</span>
     </a>
   );

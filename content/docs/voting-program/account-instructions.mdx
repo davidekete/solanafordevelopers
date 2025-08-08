@@ -4,6 +4,8 @@ description: Learn how to define program instructions for complex payloads
 icon: Command
 ---
 
+import { Term } from "../../../src/components/link-hover";
+
 Following the requirements for your voting program, it will have three instructions:
 
 1. `CreatePoll`
@@ -19,8 +21,8 @@ use solana_program::program_error::ProgramError;
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 pub enum PollInstructions {
     CreatePoll {
-        start_slot: u64,
-        end_slot: u64,
+        lead_slots: u64,
+        duration_slots: u64,
         poll_description: String,
         poll_option_names: Vec<String>,
     },
@@ -33,6 +35,20 @@ pub enum PollInstructions {
 }
 ```
 
+Notice the arguments in the create poll instruction, `lead_slots` and `duration_slots`, not `start_slot` and `end_slot`. To understand why you shouldn’t get the exact slots from the client, first you need to understand what slots are.
+
+## Solana slots
+
+A slot on Solana is a short duration of time, currently set a 400 ms defined by the chain’s Proof-of-History (PoH) clock. The PoH sequence generates a continual stream of cryptographic “ticks”; after **64 ticks** the chain advances one slot, giving everyone a shared, verifiable timeline.
+
+While the theoretical slot length is 400 ms, real-world conditions introduce jitter, meaning that a slot can last more than 400 ms.
+
+Now, when the client picks `start_slot`/`end_slot`, time keeps moving while the transaction is in flight. By the time your instruction executes checks to ensure that the `start_slot` the client passed is not in the past, it might fail because the current slot might have passed the their start slot.
+
+So instead, the client should provide a `lead_slot` and a `duration_slot`. The lead slots represents the number of slots the program should wait before the poll starts and the duration slot represent how long the poll should last.
+
+## Unpacking instruction data with Borsh
+
 In your counter_program you implemented a helper function `unpack` which
 
 split the first byte to get the instruction variant, matches the variant and parses any additional parameters from the remaining bytes, and returns the corresponding enum variant.
@@ -41,7 +57,7 @@ The payload in the counter program was trivial; only a single `u64` on one varia
 
 However, you have to take a different approach here because these instructions have complex payloads (`CreatePoll` carries a `u64, u64, String, Vec<String>`). Hand-parsing it would mean writing and maintaining length-prefix logic for the vector and each string.
 
-An alternative and argueably better way to parse incoming instruction data in case like this (Complex payloads) would be using Borsh. With Borsh, the enum variant tag + all fields are serialized/deserialized correctly with one line.
+An alternative and arguably better way to parse incoming instruction data in case like this (Complex payloads) would be using Borsh. With Borsh, the enum variant tag + all fields are serialized/deserialized correctly with one line.
 
 Like so:
 
@@ -63,5 +79,5 @@ The `pack` function calls `BorshSerialize::to_vec`, which writes the enum’s va
 
 ### Trade-offs to keep in mind
 
-- **Application Binary Interface (ABI) stability:** Borsh encodes the enum variant index based on declaration order. If you reorder variants, you change the wire format. If you choose Borsh, **freeze the order** (and ideally add tests that assert specific byte layouts).
-- **Transaction size & compute.** Borsh is efficient, but variable-length fields (like many strings) can bloat instruction data. With hand-parsing you can design a tighter, fixed layout if you need to.
+- **<Term term="Application Binary Interface"/> (ABI) stability:** Borsh encodes the enum variant index based on declaration order. If you reorder variants, you change the wire format. If you choose Borsh, **freeze the order** (and ideally add tests that assert specific byte layouts).
+- **Transaction size & compute:** Borsh is efficient, but variable-length fields (like many strings) can bloat instruction data. With hand-parsing you can design a tighter, fixed layout if you need to.

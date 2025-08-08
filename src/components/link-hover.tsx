@@ -20,6 +20,15 @@ import { GlossaryMeaning } from "./GlossaryMeaning";
 import { isInternalDocs, isInternalUrl } from "../lib/config/internalLinks";
 import { ExternalLinkPreview } from "./ExternalLinkPreview";
 
+
+
+/**
+ * Adds a preview to the link
+ * Usage: <LinkPrev href={"url"}>anchor tex
+ * </LinkPrev>
+ * @param param0 
+ * @returns JSX
+ */
 export function LinkPrev({
   children,
   ...props

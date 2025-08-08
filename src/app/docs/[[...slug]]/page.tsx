@@ -8,7 +8,6 @@ import {
 import { notFound } from "next/navigation";
 import { createRelativeLink } from "fumadocs-ui/mdx";
 import { getMDXComponents } from "@/mdx-components";
-// import GithubIcon from "../../../icons/github.svg";
 import Image from "next/image";
 
 export default async function Page(props: {

@@ -85,7 +85,7 @@ export async function generateMetadata(props: {
     openGraph: {
       images: [
         {
-          url: "/opengraph-image.gif",
+          url: "https://www.solanafordevs.com/opengraph-image.gif",
           width: 1200,
           height: 630,
           type: "image/gif",

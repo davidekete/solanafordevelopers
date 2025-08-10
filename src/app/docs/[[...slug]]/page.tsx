@@ -83,7 +83,14 @@ export async function generateMetadata(props: {
     title: page.data.title,
     description: page.data.description,
     openGraph: {
-      images: "../../../opengraph-image.gif",
+      images: [
+        {
+          url: "../../../opengraph-image.gif",
+          width: 1200,
+          height: 630,
+          type: "image/gif",
+        },
+      ],
     },
   };
 }

@@ -31,7 +31,7 @@ impl Poll {
         MAX_DESC_LEN +              // poll_description // [!code highlight]
         size_of::<u64>() +          // start_slot // [!code highlight]
         size_of::<u64>() +          // end_slot // [!code highlight]
-        size_of::<u8>() +           // poll_stage (PollStage as u8) // [!code highlight]
+        size_of::<bool>() +           // closed_early [!code highlight]
         size_of::<u8>() // options_count // [!code highlight]
     }; // [!code highlight]
 

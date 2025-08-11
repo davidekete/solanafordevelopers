@@ -42,7 +42,7 @@ impl Poll {
             poll_description: padded_description,
             start_slot,
             end_slot,
-            poll_stage: PollStage::Open,
+            closed_early: false,
             options_count: options_cnt,
         })
     }

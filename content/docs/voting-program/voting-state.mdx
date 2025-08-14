@@ -18,12 +18,14 @@ The requirements can be translated into 3 account structs: `Poll`, `PollOption`,
 
 ## The `Poll` account
 
-The `Poll` account stores the core information about the poll, such as its description and voting window. However, there are a few more fields it should hold; for instance, it should keep track of the poll’s creator using their public key for access control checks, because, remember, only the poll’s creator can close the poll. It should also store the state of the poll (Open/Closed) and a count of the options the poll has for input validation, and the start and end <Term term="slot"/> for time tracking (more on this later).
+The `Poll` account stores the core information about the poll, such as its description and voting window.
+However, there are a few more fields it should hold; for instance, it should keep track of the poll’s creator
+using their public key for access control checks, because, remember, only the poll’s creator can close the poll.
+It should also track if the poll has been closed (before voting ended) and a count of the options the poll has for input validation, and the start and end <Term term="slot"/> for time tracking (more on this later).
 
 Putting all that into consideration, your `Poll` struct should look like the one below:
 
 ```rust title="state/poll.rs"
-use crate::enums::poll_stage::PollStage;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 pub const MAX_DESC_LEN: usize = 255;
@@ -40,8 +42,7 @@ pub struct Poll {
     pub start_slot: u64,
     pub end_slot: u64,
 
-// [!code highlight]
-    pub poll_stage: PollStage,
+    pub closed_early: bool,
 
     /// Count of registered options
     pub options_count: u8,
@@ -54,7 +55,7 @@ Create a state/poll.rs file and add the code block above to it.
 
 </Callout>
 
-If you take a look at the code block above, you’ll notice some additional fields that we haven't covered yet. The first one is `desc_len`. To understand what that property does, first, you have to understand why the `poll_description` type is a fixed-length buffer instead of a variable-length string.
+If you take a look at the code block above, you’ll notice an additional field that we haven't covered yet, `desc_len`. To understand what this property does, first, you have to understand why the `poll_description` type is a fixed-length buffer instead of a variable-length string.
 
 Solana accounts must have a fixed size at creation, a variable‑length `String` forces you to either over‑allocate (wasting rent) or perform costly, error‑prone reallocations. A fixed `[u8; MAX] + len` avoids heap allocations during (de)serialization, is rent‑efficient, and gives predictable, bounded reads/writes.
 
@@ -65,51 +66,6 @@ Now, back to `desc_len`, it tells your program how many of the reserved bytes ar
 You can set your MAX_DESC_LEN to any value you deem worthy. However, keep in mind that you have to adjust the `desc_len` type for any values above 255 to avoid an integer overflow.
 
 </Callout>
-
-### The `PollStage` enum
-
-As we discussed earlier, a poll can only exist in two states: `Open` and `Closed`. So, create an `enums/poll_stage.rs` file and add the code block below to it:
-
-```rust title="enums/poll_stage.rs"
-use borsh::{BorshDeserialize, BorshSerialize};
-
-#[repr(u8)]
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PollStage {
-    Open,
-    Closed,
-}
-```
-
-<Callout title="Info">
-The `#[repr(u8)]` trait guarantees the enum takes exactly 1 byte.
-
-</Callout>
-
-When you serialize the `PollStage` enum into account data, it gets converted to a `u8` value (0 for Open, 1 for Closed ). When reading it back, you need to convert from `u8` back to the enum.
-
-You can implement conversion traits to make this process easier:
-
-```rust title="Rust"
-impl From<PollStage> for u8 {
-    fn from(stage: PollStage) -> u8 {
-        stage as u8
-    }
-}
-
-/// If someone writes an invalid value (say, a buggy upgrade or a malicious client),
-/// the conversion fails cleanly and you return an error instead of continuing with an undefined variant.
-impl TryFrom<u8> for PollStage {
-    type Error = ();
-    fn try_from(value: u8) -> Result<Self, ()> {
-        match value {
-            0 => Ok(PollStage::Open),
-            1 => Ok(PollStage::Closed),
-            _ => Err(()),
-        }
-    }
-}
-```
 
 ## `PollOption` accounts
 

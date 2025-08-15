@@ -3,6 +3,13 @@ import { RootProvider } from "fumadocs-ui/provider";
 import { Inter, Geist, Space_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Analytics } from "@vercel/analytics/next";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  verification: {
+    google: "nBaQQFZkJ6otvGiw6sefW0I9zzeXNPTF4IN3JoQpXic",
+  },
+};
 
 const inter = Inter({
   subsets: ["latin"],

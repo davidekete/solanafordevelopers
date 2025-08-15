@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
+
+
+<url>
+  <loc>https://www.solanafordevs.com/docs/introduction</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/introduction/crypto-wallets</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/introduction/solana-prereqs</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/introduction/setup</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/setup-counter</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/program-state</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/program-instructions</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/program-handler</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/program-entrypoint</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/clusters</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/deploy-counter</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/counter-program/anchor-rewrite</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/program-setup</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/voting-state</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/account-discriminators</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/account-size</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/new-constructor</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/account-instructions</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/custom-errors</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/pda</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>https://www.solanafordevs.com/docs/voting-program/instruction-handlers</loc>
+  <lastmod>2025-08-15T01:11:14+00:00</lastmod>
+  <priority>0.80</priority>
+</url>
+
+
+</urlset>

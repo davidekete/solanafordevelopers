@@ -49,9 +49,7 @@ So instead, the client should provide a `lead_slot` and a `duration_slot`. The l
 
 ## Unpacking instruction data with Borsh
 
-In your counter_program you implemented a helper function `unpack` which
-
-split the first byte to get the instruction variant, matches the variant and parses any additional parameters from the remaining bytes, and returns the corresponding enum variant.
+In your counter program you implemented a helper function `unpack` which split the first byte to get the instruction variant, matches the variant and parses any additional parameters from the remaining bytes, and returns the corresponding enum variant.
 
 The payload in the counter program was trivial; only a single `u64` on one variant and no data on the other. Therefore, hand-parsing it was a short, readable, and slightly cheaper in compute way to handle incoming transaction data.
 

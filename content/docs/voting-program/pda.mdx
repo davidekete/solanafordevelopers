@@ -3,3 +3,109 @@ title: Program Derived Addresses
 description: Explore Solana Program's most misunderstood feature PDAs
 icon: Spline
 ---
+
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
+
+On Solana, program code lives in an executable account, while program state lives in separate data accounts. Think of each data account as a clear safe: anyone can look inside, but changing what’s inside requires whatever the owner program (the program that owns the data account) considers valid authority (i.e., the right signers and rules).
+
+Some accounts (e.g., user wallets) are backed by keypairs: the private key creates signatures that authorize transactions. Program state accounts, however, don’t rely on the account’s own private key to permit writes.
+
+The Solana runtime allows only the owner program to modify its accounts, and the program itself decides which external signers must approve a change. If you tried to manage program state with keypair-backed accounts, the program would need to hold those private keys, something it cannot and should not do.
+
+## The problem with key pair accounts
+
+In the last project (counter program), you created a data account with a random key pair. That worked because the program had one piece of state, no relationships, and no need for the program itself to act as a signer. In this voting program, those assumptions break down due to some limitations you encounter when using data accounts with random key pairs.
+
+For one, the requirements for this program state that each vote must be unique. However, if `VoteRecord` is a keypair account:
+
+- An attacker can send two transactions in the same block, each with a different fresh key pair for `vote_record_a` and `vote_record_b`.
+- Your program checks `vote_record.data_is_empty()` and initializes both, because they are different addresses.
+- Result: two votes from the same wallet for one poll.
+
+This happens because uniqueness isn’t encoded in the address: with client-supplied key pairs, there is no single, canonical `VoteRecord` address for `(poll, voter)`, so two _different_ addresses both look “new” to the runtime and to your `data_is_empty()` check.
+
+Since the user’s signatures authorize account creation, both creations succeed independently, and there’s nothing to force a collision that would make the second attempt fail.
+
+The same control over addresses enables silent topology attacks. When `PollOption` is a user key pair; a client can pass a similarly shaped account whose bytes appear correct but whose **parent** isn’t your poll, or worse, an option they reuse across multiple polls. If a single-parent binding check is missing or computed incorrectly, your tally updates land in the wrong place, splitting or redirecting votes without throwing an error.
+
+These failure modes come from letting clients choose addresses. You can patch around them with extra lookups and locks, but you’ll still fight races and edge cases.
+
+To give programs their own authorities without private keys, Solana provides **Program-Derived Addresses (PDAs).**
+
+## How PDAs work
+
+A PDA is derived from **seeds you define,** plus your `program_id`. The runtime finds an address that lies **off the ed25519 curve** (so no private key exists) and returns a small “bump” byte that proves the derivation. Anyone can recompute the expected PDA from the same inputs, but only your program can “sign” for it by calling `invoke_signed` with the exact seeds and bump. That property provides you with deterministic, program-owned addresses and secure authority without ever handling a private key.
+
+![pda-vs-keypair](/assets/voting-program/pda/pda-vs-keypair.png)
+
+### PDA seeds and bump
+
+PDA seeds are the inputs you pass into the `find_program_address` function, which returns a PDA’s public key and a bump.
+
+These seeds are application-specific and must be carefully selected to derive accounts that meet the unique requirements of each application. It is common to use static strings and other pubkeys as seeds.
+
+<Accordions type="single">
+  <Accordion title="A small patch for Poll Uniqueness" id="unique-patch">
+We need an extra piece of state to ensure that each poll is unique. This state ties the created polls to its creator, or more accurately, their public key, and keeps track of the ID of the next Poll (more on this later).
+
+Create a state/creator_stats.rs file in your project and add the code block below to create the creator stats state:
+
+```rust
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::program_error::ProgramError;
+
+pub const CREATOR_STATS_DISCRIMINATOR: [u8; 8] = *b"CRSTATS1";
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CreatorStats {
+    pub discriminator: [u8; 8],
+
+    pub next_poll_id: u64,
+}
+
+impl CreatorStats {
+    pub const SIZE: usize = {
+        use core::mem::size_of;
+        size_of::<[u8; 8]>() +     // discriminator
+        size_of::<u64>() // next_poll_id
+    };
+
+    pub fn new() -> Self {
+        Self {
+            discriminator: CREATOR_STATS_DISCRIMINATOR,
+            next_poll_id: 0,
+        }
+    }
+
+    pub fn assert_valid(&self) -> Result<(), ProgramError> {
+        if self.discriminator != CREATOR_STATS_DISCRIMINATOR {
+            return Err(ProgramError::InvalidAccountData);
+        }
+        Ok(())
+    }
+}
+```
+
+  </Accordion>
+</Accordions>
+
+### PDA seeds and bump
+
+Seeds are byte slices you pass to `Pubkey::find_program_address` to deterministically derive a Program Derived Address (PDA) for your program. That function returns `(pda, bump)`, where bump is a single byte the runtime finds so that the address lands off-curve.
+
+Here are a few things you should consider when picking seeds for each account:
+
+- Each PDA can have up to 16 seeds; each seed should be ≤ 32 bytes, so you can bound cost and keep PDAs cheap/predictable.
+- If a seed might exceed 32 bytes, hash it first and use the 32-byte digest.
+- Choose seeds that uniquely identify the account you want to create.
+- The seeds should be values the client already knows (or can compute) before sending the transaction.
+
+For example, the seeds for your Poll account can be:
+
+```rust
+ poll_pda_seeds = &[b"poll", payer_info.key.as_ref(), &poll_id.to_le_bytes()];
+```
+
+The poll seeds above include a static string `b"poll"`, the payer’s public key (payer = creator), and the poll ID in little-endian bytes. The total number of seeds is below the 16-seed limit, the size of each seed is below the 32-byte threshold, and most importantly, the client already knows these seeds/can compute them.
+
+Now we have covered PDA’s theoretically, in the following few pages, you will create the instruction handlers for each of the instructions your program supports.

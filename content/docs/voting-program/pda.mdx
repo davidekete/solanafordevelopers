@@ -97,9 +97,11 @@ Here are a few things you should consider when picking seeds for each account:
 - It is common to use static strings and pubkeys as seeds.
 
 <Callout title="info">
-Seeds are public, meaning that anyone can recompute a PDA and **read** its account data. However, only the program set as the account’s **owner** can:
-- modify the account’s data or move its lamports, and
-- make the PDA “sign” a CPI via `invoke_signed` (the runtime treats it as a signer for that instruction only).
+  Seeds are public, meaning that anyone can recompute a PDA and **read** its
+  account data. However, only the program set as the account’s **owner** can: -
+  modify the account’s data or move its lamports, and - make the PDA “sign” a
+  CPI via `invoke_signed` (the runtime treats it as a signer for that
+  instruction only).
 </Callout>
 
 For example, the seeds for your Poll account can be:

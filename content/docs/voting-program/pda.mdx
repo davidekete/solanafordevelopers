@@ -8,8 +8,6 @@ import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 
 On Solana, program code lives in an executable account, while program state lives in separate data accounts. Think of each data account as a clear safe: anyone can look inside, but changing what’s inside requires whatever the owner program (the program that owns the data account) considers valid authority (i.e., the right signers and rules).
 
-Some accounts (e.g., user wallets) are backed by keypairs: the private key creates signatures that authorize transactions. Program state accounts, however, don’t rely on the account’s own private key to permit writes.
-
 The Solana runtime allows only the owner program to modify its accounts, and the program itself decides which external signers must approve a change. If you tried to manage program state with keypair-backed accounts, the program would need to hold those private keys, something it cannot and should not do.
 
 ## The problem with key pair accounts
@@ -98,9 +96,9 @@ Here are a few things you should consider when picking seeds for each account:
 
 <Callout title="info">
   Seeds are public, meaning that anyone can recompute a PDA and **read** its
-  account data. However, only the program set as the account’s **owner** can: -
-  modify the account’s data or move its lamports, and - make the PDA “sign” a
-  CPI via `invoke_signed` (the runtime treats it as a signer for that
+  account data. However, only the program set as the account’s **owner** can: 
+  - modify the account’s data or move its lamports, and 
+  - make the PDA “sign” a CPI via `invoke_signed` (the runtime treats it as a signer for that
   instruction only).
 </Callout>
 

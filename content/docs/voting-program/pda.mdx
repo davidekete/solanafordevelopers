@@ -96,9 +96,9 @@ Here are a few things you should consider when picking seeds for each account:
 
 <Callout title="info">
   Seeds are public, meaning that anyone can recompute a PDA and **read** its
-  account data. However, only the program set as the account’s **owner** can: 
-  - modify the account’s data or move its lamports, and 
-  - make the PDA “sign” a CPI via `invoke_signed` (the runtime treats it as a signer for that
+  account data. However, only the program set as the account’s **owner** can: -
+  modify the account’s data or move its lamports, and - make the PDA “sign” a
+  CPI via `invoke_signed` (the runtime treats it as a signer for that
   instruction only).
 </Callout>
 
@@ -111,3 +111,8 @@ For example, the seeds for your Poll account can be:
 The poll seeds above include a static string `b"poll"`, the payer’s public key (payer = creator), and the poll ID in little-endian bytes. The total number of seeds is below the 16-seed limit, the size of each seed is below the 32-byte threshold, and most importantly, the client already knows these seeds/can compute them.
 
 Now we have covered PDA’s theoretically, in the following few pages, you will create the instruction handlers for each of the instructions your program supports.
+
+## Further Reading
+
+- [Program Derived Addresses on Solana - Explanations and Examples](https://www.helius.dev/blog/solana-pda) by Helius Labs.
+- [An overview of PDAs](https://solana.com/docs/core/pda) according to the Official Solana Docs.

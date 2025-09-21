@@ -9,7 +9,7 @@
     "account-instructions",
     "custom-errors",
     "pda",
-    "instruction-handlers"
+    "handlers"
   ],
   "defaultOpen": true
 }

@@ -336,6 +336,23 @@ You can implement the required logic using the code block below:
 
 ```
 
+After initializing the `Poll` account, increment the counter on the `CreatorStats` account (you learnt how to modify state on-chain in the counter program, those skills will come in handy rn).
+
+Here’s how to increment the `next_poll_id` on the `CreatorStats` account:
+
+```rust
+    creator_stats.next_poll_id = creator_stats
+        .next_poll_id
+        .checked_add(1)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    {
+        let mut data = creator_stats_info.try_borrow_mut_data()?;
+        creator_stats
+            .serialize(&mut &mut data[..])
+            .map_err(|_| ProgramError::InvalidAccountData)?;
+    }
+```
+
 ## Creating poll option accounts
 
 Next, you have to create `PollOption` accounts. It is the same process as before, the only difference is that you are creating multiple accounts (one for each `PollOption`). Thus, you’ll have to run the logic in a loop.
@@ -438,6 +455,163 @@ n create_poll_options<'info>(
         let opt_struct = PollOption::new(*poll_account.key, option_id, name.as_bytes())?;
         opt_struct.serialize(&mut &mut option_info.data.borrow_mut()[..])?;
     }
+
+    Ok(())
+}
+
+```
+
+    </Accordion>
+
+</Accordions>
+
+Your full `process_create_poll` function should be similar to the embedded code block below.
+
+<Accordions type="single">
+  <Accordion title="Full handler function snippet" id="create-options">
+
+Your full `process_create_poll` function should be similar to the code block below:
+
+```rust title="Rust"
+pub fn process_create_poll(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    poll_description: String,
+    lead_slots: u64,
+    duration_slots: u64,
+    poll_options: Vec<String>,
+) -> ProgramResult {
+    // Current slot
+    let clock = Clock::get()?;
+
+    // Calculate start slot
+    let start_slot = clock
+        .slot
+        .checked_add(lead_slots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    // Calculate end slot
+    let end_slot = start_slot
+        .checked_add(duration_slots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    // Check if passed slot is valid
+    if duration_slots == 0 || start_slot >= end_slot {
+        return Err(PollError::InvalidSlotTime.into());
+    }
+
+    // Check if poll description is empty
+    if poll_description.trim().len() < 1 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    // Check if the poll description is longer than the max desc len
+    if poll_description.len() > MAX_DESC_LEN
+        || poll_options.iter().any(|n| n.len() > MAX_OPTION_NAME_LEN)
+    {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    // check if there are enough poll options
+    if poll_options.is_empty() || poll_options.len() < 2 {
+        return Err(PollError::NotEnoughPollOptions.into());
+    }
+
+    // Extract accounts from payload
+    let acc_iter = &mut accounts.iter();
+    let payer_info = next_account_info(acc_iter)?; // signer
+    let poll_info = next_account_info(acc_iter)?; // Poll PDA
+    let creator_stats_info = next_account_info(acc_iter)?; // Creator stats
+    let option_count = poll_options.len();
+
+    let mut poll_option_accounts = Vec::with_capacity(option_count); // Poll option pdas
+
+    for _ in 0..option_count {
+        poll_option_accounts.push(next_account_info(acc_iter)?);
+    }
+
+    let system_info = next_account_info(acc_iter)?;
+
+    if !payer_info.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    //load stats
+    let mut creator_stats = load_or_init_stats(
+        program_id,
+        &[
+            payer_info.clone(),
+            creator_stats_info.clone(),
+            system_info.clone(),
+        ],
+    )?;
+
+    let poll_id = creator_stats.next_poll_id;
+
+    let poll_pda_seeds = &[b"poll", payer_info.key.as_ref(), &poll_id.to_le_bytes()];
+
+    let (poll_pda, poll_pda_bump) = Pubkey::find_program_address(poll_pda_seeds, program_id);
+
+    if *poll_info.key != poll_pda {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    let rent = Rent::get()?;
+    let rent_lamports_poll_pda = rent.minimum_balance(Poll::SIZE);
+
+    invoke_signed(
+        &solana_system_interface::instruction::create_account(
+            payer_info.key,
+            poll_info.key,
+            rent_lamports_poll_pda,
+            Poll::SIZE as u64,
+            program_id,
+        ),
+        &[payer_info.clone(), poll_info.clone(), system_info.clone()],
+        &[&[
+            b"poll",
+            payer_info.key.as_ref(),
+            &poll_id.to_le_bytes(),
+            &[poll_pda_bump],
+        ]],
+    )?;
+
+    let new_poll = Poll::new(
+        *payer_info.key,
+        start_slot,
+        end_slot,
+        poll_description.as_bytes(),
+        option_count as u8,
+    )?;
+
+    new_poll.serialize(&mut &mut poll_info.data.borrow_mut()[..])?;
+
+    creator_stats.next_poll_id = creator_stats
+        .next_poll_id
+        .checked_add(1)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+    {
+        let mut data = creator_stats_info.try_borrow_mut_data()?;
+        creator_stats
+            .serialize(&mut &mut data[..])
+            .map_err(|_| ProgramError::InvalidAccountData)?;
+    }
+
+    create_poll_options(
+        poll_info,
+        &poll_options,
+        &poll_option_accounts,
+        program_id,
+        payer_info,
+        system_info,
+    )?;
+
+    msg!(
+        "Event: poll_created - Poll ID={}, Creator={} Options={}",
+        poll_id,
+        payer_info.key,
+        option_count
+    );
 
     Ok(())
 }

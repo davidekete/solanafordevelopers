@@ -13,35 +13,57 @@ To create custom errors, define a program-specific error enum and convert it to 
 Like so:
 
 ```rust title="src/errors.rs"
+use num_enum::TryFromPrimitive;
 use solana_program::program_error::ProgramError;
+use solana_program_error::ToStr;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[repr(u32)]
+#[derive(Debug, Error, Clone, Copy, Eq, PartialEq, TryFromPrimitive)]
 pub enum PollError {
     #[error("You need at least 2 poll options")]
-    NotEnoughPollOptions,
+    NotEnoughPollOptions = 6000,
 
     #[error("End Slot cannot be less than start slot")]
-    InvalidSlotTime,
+    InvalidSlotTime = 6001,
 
     #[error("Voting window for this poll has closed")]
-    VotingWindowClosed,
+    VotingWindowClosed = 6002,
 
     #[error("Voting window for this poll is still open")]
-    VotingWindowStillOpen,
+    VotingWindowStillOpen = 6003,
 
     #[error("This poll has been closed")]
-    PollAlreadyClosed,
+    PollAlreadyClosed = 6004,
 
     #[error("Input data exceeds max length")]
-    InvalidDataLength,
+    InvalidDataLength = 6005,
 }
 
 impl From<PollError> for ProgramError {
-    fn from(value: PollError) -> Self {
-        ProgramError::Custom(value as u32)
+    fn from(e: PollError) -> Self {
+        ProgramError::Custom(e as u32)
+    }
+}
+
+// Provide a static string for each variant (used by ProgramError::to_str::<PollError>())
+impl ToStr for PollError {
+    fn to_str(&self) -> &'static str {
+        match self {
+            Self::NotEnoughPollOptions => "You need at least 2 poll options",
+            Self::InvalidSlotTime => "End Slot cannot be less than start slot",
+            Self::VotingWindowClosed => "Voting window for this poll has closed",
+            Self::VotingWindowStillOpen => "Voting window for this poll is still open",
+            Self::PollAlreadyClosed => "This poll has been closed",
+            Self::InvalidDataLength => "Input data exceeds max length",
+        }
     }
 }
 ```
+
+<Callout>
+Identify your error codes with large numbers to avoid clashes with other packages. For example, Solana's error code for insufficient balance is `Custom(1)`.
+
+</Callout>
 
 `thiserror::Error` gives each variant a readable message for logs and tests. Now you can use this enum as you’d `ProgramError`.

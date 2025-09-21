@@ -194,3 +194,256 @@ However, if the `CreatorStats` already exist, you can load and validate it:
 
     stats.assert_valid()?;
 ```
+
+<Accordions type="single">
+  <Accordion title="Optional: refactor load/init stats logic into a function" id="load_or_init_stats">
+The logic for loading or initializing stats is a little bulky. You can export it into a helper function.
+
+Like so:
+
+```rust title="Rust"
+pub fn load_or_init_stats(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<CreatorStats, ProgramError> {
+    //get accounts from payload
+    let acc_iter = &mut accounts.iter();
+    let creator_account = next_account_info(acc_iter)?; // Poll creator's account
+    let creator_stats = next_account_info(acc_iter)?; // Creator's stat account
+    let system_program = next_account_info(acc_iter)?;
+
+    // Find creator stats PDA from seeds
+    let (stats_pda, bump) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator_account.key.as_ref()],
+        program_id,
+    );
+
+    // check if the account passed as the creator stats account is the same as the one found
+    if creator_stats.key != &stats_pda {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    //if empty, init
+    if creator_stats.data_is_empty() {
+        let lamports = Rent::get()?.minimum_balance(CreatorStats::SIZE);
+
+        invoke_signed(
+            &solana_system_interface::instruction::create_account(
+                creator_account.key,
+                creator_stats.key,
+                lamports,
+                CreatorStats::SIZE as u64,
+                program_id,
+            ),
+            &[
+                creator_account.clone(),
+                creator_stats.clone(),
+                system_program.clone(),
+            ],
+            &[&[CREATOR_STATS_SEED, creator_account.key.as_ref(), &[bump]]],
+        )?;
+
+        let new_stats = CreatorStats::new();
+
+        let mut data = &mut creator_stats.data.borrow_mut()[..];
+        new_stats.serialize(&mut data)?;
+
+        return Ok(new_stats);
+    }
+
+    // Else: load and validate
+    if creator_stats.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let stats: CreatorStats = {
+        let data = creator_stats.try_borrow_data()?;
+        CreatorStats::try_from_slice(&data).map_err(|_| ProgramError::InvalidAccountData)?
+    };
+
+    stats.assert_valid()?;
+
+    Ok(stats)
+}
+```
+
+    </Accordion>
+
+</Accordions>
+
+## Initializing the poll account
+
+Repeat the same process you used for the `CreatorStats` account for the `Poll` account. First, determine the seeds (that will uniquely identify each poll), do some sanity checks, calculate rent, create the account, and initialize the account data.
+
+The seeds are:
+
+- A static string: `poll`
+- The creator’s (payer) public key
+- The poll ID (`creator_stats.next_poll_id`)
+
+You can implement the required logic using the code block below:
+
+```rust title="Rust"
+ //load stats
+    let mut creator_stats = load_or_init_stats(
+        program_id,
+        &[
+            payer_info.clone(),
+            creator_stats_info.clone(),
+            system_info.clone(),
+        ],
+    )?;
+
+    let poll_id = creator_stats.next_poll_id;
+
+    let poll_pda_seeds = &[b"poll", payer_info.key.as_ref(), &poll_id.to_le_bytes()];
+
+    let (poll_pda, poll_pda_bump) = Pubkey::find_program_address(poll_pda_seeds, program_id);
+
+    if *poll_info.key != poll_pda {
+        return Err(ProgramError::InvalidSeeds);
+    }
+
+    let rent = Rent::get()?;
+    let rent_lamports_poll_pda = rent.minimum_balance(Poll::SIZE);
+
+    invoke_signed(
+        &solana_system_interface::instruction::create_account(
+            payer_info.key,
+            poll_info.key,
+            rent_lamports_poll_pda,
+            Poll::SIZE as u64,
+            program_id,
+        ),
+        &[payer_info.clone(), poll_info.clone(), system_info.clone()],
+        &[&[
+            b"poll",
+            payer_info.key.as_ref(),
+            &poll_id.to_le_bytes(),
+            &[poll_pda_bump],
+        ]],
+    )?;
+
+    let new_poll = Poll::new(
+        *payer_info.key,
+        start_slot,
+        end_slot,
+        poll_description.as_bytes(),
+        option_count as u8,
+    )?;
+
+    new_poll.serialize(&mut &mut poll_info.data.borrow_mut()[..])?;
+
+```
+
+## Creating poll option accounts
+
+Next, you have to create `PollOption` accounts. It is the same process as before, the only difference is that you are creating multiple accounts (one for each `PollOption`). Thus, you’ll have to run the logic in a loop.
+
+The seeds for each `PollOption` account is:
+
+- A static string: `option`
+- It’s parent poll account’s public key
+- It’s ID (index in the array)
+
+You can implement the required logic using the code block below:
+
+```rust
+let rent_lamports_poll_options = Rent::get()?.minimum_balance(PollOption::SIZE);
+
+    for (idx, name) in poll_option_names.iter().enumerate() {
+        let option_info = poll_option_accounts[idx];
+
+        let option_id = idx as u8;
+
+        let poll_option_pda_seeds = &[b"option", poll_account.key.as_ref(), &[option_id]];
+
+        let (expected_option_key, opt_bump) =
+            Pubkey::find_program_address(poll_option_pda_seeds, program_id);
+        if *option_info.key != expected_option_key {
+            return Err(ProgramError::InvalidSeeds);
+        }
+
+        invoke_signed(
+            &solana_system_interface::instruction::create_account(
+                payer_info.key,
+                option_info.key,
+                rent_lamports_poll_options,
+                PollOption::SIZE as u64,
+                program_id,
+            ),
+            &[payer_info.clone(), option_info.clone(), system_info.clone()],
+            &[&[
+                b"option",
+                poll_account.key.as_ref(),
+                &[option_id],
+                &[opt_bump],
+            ]],
+        )?;
+
+        let opt_struct = PollOption::new(*poll_account.key, option_id, name.as_bytes())?;
+        opt_struct.serialize(&mut &mut option_info.data.borrow_mut()[..])?;
+    }
+```
+
+<Accordions type="single">
+  <Accordion title="Optional: refactor create option account logic into a function" id="create-options">
+You can refactor the logic for creating option accounts into a function. Like so:
+
+```rust title="Rust"
+n create_poll_options<'info>(
+    poll_account: &AccountInfo<'info>,
+    poll_option_names: &[String],
+    poll_option_accounts: &[&AccountInfo<'info>],
+    program_id: &Pubkey,
+    payer_info: &AccountInfo<'info>,
+    system_info: &AccountInfo<'info>,
+) -> Result<(), ProgramError> {
+    if poll_option_names.len() != poll_option_accounts.len() {
+        return Err(ProgramError::NotEnoughAccountKeys);
+    }
+
+    let rent_lamports_poll_options = Rent::get()?.minimum_balance(PollOption::SIZE);
+
+    for (idx, name) in poll_option_names.iter().enumerate() {
+        let option_info = poll_option_accounts[idx];
+
+        let option_id = idx as u8;
+
+        let poll_option_pda_seeds = &[b"option", poll_account.key.as_ref(), &[option_id]];
+
+        let (expected_option_key, opt_bump) =
+            Pubkey::find_program_address(poll_option_pda_seeds, program_id);
+        if *option_info.key != expected_option_key {
+            return Err(ProgramError::InvalidSeeds);
+        }
+
+        invoke_signed(
+            &solana_system_interface::instruction::create_account(
+                payer_info.key,
+                option_info.key,
+                rent_lamports_poll_options,
+                PollOption::SIZE as u64,
+                program_id,
+            ),
+            &[payer_info.clone(), option_info.clone(), system_info.clone()],
+            &[&[
+                b"option",
+                poll_account.key.as_ref(),
+                &[option_id],
+                &[opt_bump],
+            ]],
+        )?;
+
+        let opt_struct = PollOption::new(*poll_account.key, option_id, name.as_bytes())?;
+        opt_struct.serialize(&mut &mut option_info.data.borrow_mut()[..])?;
+    }
+
+    Ok(())
+}
+
+```
+
+    </Accordion>
+
+</Accordions>

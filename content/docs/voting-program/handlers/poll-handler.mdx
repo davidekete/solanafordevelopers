@@ -1,0 +1,188 @@
+---
+title: Creating a poll
+description: Create the processors for each of your instructions
+---
+
+To create a poll, you need access to the following accounts
+
+- The creator’s account, which serves as both the signer & payer.
+- The creator’s stats account, a PDA that keeps track of the next poll’s ID. Its default value is zero when the creator has created no polls.
+- The poll option accounts, which track a poll’s options and the number of votes each has received.
+- System Program account, which is responsible for creating new accounts.
+
+When your program receives the `CreatePoll` instructions, first it needs to calculate the `start` and `end` slots using the `lead` and `duration` slots. Then perform some routine security and sanity checks on the client-supplied parameters, such as description and options. After the sanity checks pass, it can now extract the accounts from the accounts array.
+
+Implementing this logic would look like the code block below:
+
+```rust title="Rust"
+pub fn process_create_poll(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    poll_description: String,
+    lead_slots: u64,
+    duration_slots: u64,
+    poll_options: Vec<String>,
+) -> ProgramResult {
+    // Current slot
+    let clock = Clock::get()?;
+
+    // Calculate start slot
+    let start_slot = clock
+        .slot
+        .checked_add(lead_slots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    // Calculate end slot
+    let end_slot = start_slot
+        .checked_add(duration_slots)
+        .ok_or(ProgramError::ArithmeticOverflow)?;
+
+    // Check if passed slot is valid
+    if duration_slots == 0 || start_slot >= end_slot {
+        return Err(PollError::InvalidSlotTime.into());
+    }
+
+    // Check if poll description is empty
+    if poll_description.trim().len() < 1 {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    // Check if the poll description is longer than the max desc len
+    if poll_description.len() > MAX_DESC_LEN
+        || poll_options.iter().any(|n| n.len() > MAX_OPTION_NAME_LEN)
+    {
+        return Err(ProgramError::InvalidInstructionData);
+    }
+
+    // check if there are enough poll options
+    if poll_options.is_empty() || poll_options.len() < 2 {
+        return Err(PollError::NotEnoughPollOptions.into());
+    }
+
+    // Extract accounts from payload
+    let acc_iter = &mut accounts.iter();
+    let payer_info = next_account_info(acc_iter)?; // signer
+    let poll_info = next_account_info(acc_iter)?; // Poll PDA
+    let creator_stats_info = next_account_info(acc_iter)?; // Creator stats
+    let option_count = poll_options.len();
+
+    let mut poll_option_accounts = Vec::with_capacity(option_count); // Poll option pdas
+
+    for _ in 0..option_count {
+        poll_option_accounts.push(next_account_info(acc_iter)?);
+    }
+
+    let system_info = next_account_info(acc_iter)?;
+
+    if !payer_info.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+```
+
+Next, you would need to get the next poll ID from the creator’s stats account. But what if it’s the first time they’re creating a Poll? The account doesn’t exist yet, and more importantly, how did the client supply the account’s address if it doesn’t exist, and why?
+
+Every account your program touches **must** be supplied in the instruction’s account list, including PDAs for account locking and concurrency, fee and rent management, among other things. That’s **why** the client has to supply it.
+
+A PDA’s address is deterministic; anyone can compute it from the seeds and the program ID.
+
+For example, the client can compute the address like so:
+
+```tsx title="Typescript"
+import { PublicKey } from "@solana/web3.js";
+
+const CREATOR_STATS_SEED = "creator_stats";
+
+const [statsPda, statsBump] = PublicKey.findProgramAddressSync(
+  [Buffer.from(CREATOR_STATS_SEED), creatorPubkey.toBuffer()], //seeds
+  programId
+);
+```
+
+`findProgramAddressSync` runs the same curve-point search that the on-chain program uses, so the client ends up with **exactly** the address the program will later derive internally.
+
+## Initializing/Loading the creator stats account
+
+The client has already supplied the deterministic address of the `CreatorStats` account. Now, you have to recompute the address on-chain and initialize it if it doesn’t exist yet.
+
+The seeds I chose for the creator stats account are:
+
+- A static string → `const CREATOR_STATS_SEED: &[u8] = b"creator_stats";`
+- and the creator’s account’s public key.
+
+This combination is predictable and ties each `CreatorStats` account to a single account.
+
+When you recompute the address in your program, do a quick sanity check to ensure that the address you computed is the same as the one the client passed:
+
+Like so:
+
+```rust title="Rust"
+    // Find creator stats PDA from seeds
+    let (stats_pda, bump) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator_account.key.as_ref()],
+        program_id,
+    );
+
+    // check if the account passed as the creator stats account is the same as the one found
+    if creator_stats.key != &stats_pda {
+        return Err(ProgramError::InvalidArgument);
+    }
+```
+
+After recomputing the address, check if the account already exists. `data_is_empty()` is a cheaper way to check than attempting a deserialise-and-fail.
+
+If the account does not exist, calculate the rent, create the account, and initialize its data.
+
+Recall that in the counter program, you created the counter account using a Cross Program Invocation (CPI) with `invoke`.
+
+On Solana, every CPI call begins life as a signed message. When a transaction reaches the runtime, the validator inspects its `AccountMeta` list and marks each listed account as **signed** or **unsigned** based solely on the outer message signatures. From that moment the signer map is frozen; an on-chain program cannot add a new signature the ordinary way because it never sees private keys.
+
+A Program Derived Address upends the usual key-pair model. The address lies off the ed25519 curve, so by definition no private key exists and the outer transaction can never sign for it. If your program later needs to _create_ that PDA, _reallocate_ it, or _move lamports_ it owns, the callee (for example the System Program) will demand a signature that the outer message never supplied. A plain `invoke` therefore fails: the runtime forwards the original signer map, the callee sees the PDA flagged as writable-but-unsigned, and it aborts with `MissingRequiredSignature`.
+
+`invoke_signed` however, provides the missing authorisation path. When you call it, you append, alongside the ordinary account array, one slice of **seeds plus bump** for every PDA that ought to act as a signer. The runtime re-derives a public key from those seeds, the bump, and your program-id. If the result matches the account you passed, the runtime temporarily elevates that PDA to **signed status for the duration of this single CPI**. The callee now believes the PDA has produced a valid signature, even though no private key was involved, and the instruction proceeds.
+
+You can create the `CreatorStats` account with `invoke_signed` like so:
+
+```rust title="Rust"
+    if creator_stats.data_is_empty() {
+        let lamports = Rent::get()?.minimum_balance(CreatorStats::SIZE);
+
+        invoke_signed(
+            &solana_system_interface::instruction::create_account(
+                creator_account.key,
+                creator_stats.key,
+                lamports,
+                CreatorStats::SIZE as u64,
+                program_id,
+            ),
+            &[
+                creator_account.clone(),
+                creator_stats.clone(),
+                system_program.clone(),
+            ],
+            &[&[CREATOR_STATS_SEED, creator_account.key.as_ref(), &[bump]]],
+        )?;
+
+        let new_stats = CreatorStats::new();
+
+        let mut data = &mut creator_stats.data.borrow_mut()[..];
+        new_stats.serialize(&mut data)?;
+
+        return Ok(new_stats);
+    }
+```
+
+However, if the `CreatorStats` already exist, you can load and validate it:
+
+```rust title="Rust"
+  // Else: load and validate
+    if creator_stats.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let stats: CreatorStats = {
+        let data = creator_stats.try_borrow_data()?;
+        CreatorStats::try_from_slice(&data).map_err(|_| ProgramError::InvalidAccountData)?
+    };
+
+    stats.assert_valid()?;
+```

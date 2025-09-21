@@ -1,0 +1,37 @@
+---
+title: Creating Instruction Handlers
+description: General Setup
+---
+
+Now that you have most of your setup for your Voting Program, you can start defining the business logic for it.
+
+Your program currently supports three instructions:
+
+- Create a poll
+- Vote on an existing poll
+- Close an existing poll
+
+…and here you will implement the logic for each of them. But first, add the imports below to your [`processor.rs`](http://processor.rs) file:
+
+```rust title="Rust"
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::program::invoke_signed;
+use solana_program::{
+    account_info::{AccountInfo, next_account_info},
+    entrypoint::ProgramResult,
+    msg,
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    rent::Rent,
+    sysvar::Sysvar,
+    sysvar::clock::Clock,
+};
+use solana_system_interface;
+
+use crate::errors::PollError;
+use crate::state::creator_stats::{CREATOR_STATS_SEED, CreatorStats};
+use crate::state::poll::{MAX_DESC_LEN, Poll};
+use crate::state::poll_option::{MAX_OPTION_NAME_LEN, PollOption};
+use crate::state::vote_record::VoteRecord;
+
+```

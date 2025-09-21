@@ -1,5 +1,6 @@
 {
   "title": "Creating Instruction Handlers",
   "icon": "SquareFunction",
-  "defaultOpen": false
+  "defaultOpen": false,
+  "pages": ["poll-handler", "vote-handler", "close-handler"]
 }

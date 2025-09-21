@@ -1,5 +1,5 @@
 ---
-title: Creating a poll
+title: Creating a Poll
 description: Create the processors for each of your instructions
 ---
 
@@ -136,9 +136,17 @@ Recall that in the counter program, you created the counter account using a Cros
 
 On Solana, every CPI call begins life as a signed message. When a transaction reaches the runtime, the validator inspects its `AccountMeta` list and marks each listed account as **signed** or **unsigned** based solely on the outer message signatures. From that moment the signer map is frozen; an on-chain program cannot add a new signature the ordinary way because it never sees private keys.
 
-A Program Derived Address upends the usual key-pair model. The address lies off the ed25519 curve, so by definition no private key exists and the outer transaction can never sign for it. If your program later needs to _create_ that PDA, _reallocate_ it, or _move lamports_ it owns, the callee (for example the System Program) will demand a signature that the outer message never supplied. A plain `invoke` therefore fails: the runtime forwards the original signer map, the callee sees the PDA flagged as writable-but-unsigned, and it aborts with `MissingRequiredSignature`.
+A Program Derived Address upends the usual key-pair model. The address lies off the ed25519 curve, so by definition, no private key exists and the outer transaction can never sign for it. If your program later needs to _create_ that PDA, _reallocate_ it, or _move lamports_ it owns, the callee (for example the System Program) will demand a signature that the outer message never supplied. A plain `invoke` therefore fails: the runtime forwards the original signer map, the callee sees the PDA flagged as writable-but-unsigned, and it aborts with `MissingRequiredSignature`.
 
 `invoke_signed` however, provides the missing authorisation path. When you call it, you append, alongside the ordinary account array, one slice of **seeds plus bump** for every PDA that ought to act as a signer. The runtime re-derives a public key from those seeds, the bump, and your program-id. If the result matches the account you passed, the runtime temporarily elevates that PDA to **signed status for the duration of this single CPI**. The callee now believes the PDA has produced a valid signature, even though no private key was involved, and the instruction proceeds.
+
+<Callout title="Does this mean that anyone with your seeds (which are PUBLIC!!!) can sign on behalf of the PDA?" type="info">
+
+No. When deriving the address for your PDA, notice that the `program_id` is one of the arguments. Your `program_id` is bound to the PDA.
+A client can recompute the PDA, but only your program can pass those same seeds to invoke_signed, because the runtime checks that the caller’s `program_id` matches the one baked into the address.
+If a client tries to reuse the seeds inside their own program, the derived key no longer matches, and the CPI fails.
+
+</Callout>
 
 You can create the `CreatorStats` account with `invoke_signed` like so:
 

@@ -194,3 +194,78 @@ However, if the `CreatorStats` already exist, you can load and validate it:
 
     stats.assert_valid()?;
 ```
+
+<Accordions type="single">
+  <Accordion title="Optional: refactor load/init stats logic into a function" id="load_or_init_stats">
+The logic for loading or initializing stats is a little bulky. You can export it into a helper function.
+
+Like so:
+```rust title="Rust"
+pub fn load_or_init_stats(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> Result<CreatorStats, ProgramError> {
+    //get accounts from payload
+    let acc_iter = &mut accounts.iter();
+    let creator_account = next_account_info(acc_iter)?; // Poll creator's account
+    let creator_stats = next_account_info(acc_iter)?; // Creator's stat account
+    let system_program = next_account_info(acc_iter)?;
+
+    // Find creator stats PDA from seeds
+    let (stats_pda, bump) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator_account.key.as_ref()],
+        program_id,
+    );
+
+    // check if the account passed as the creator stats account is the same as the one found
+    if creator_stats.key != &stats_pda {
+        return Err(ProgramError::InvalidArgument);
+    }
+
+    //if empty, init
+    if creator_stats.data_is_empty() {
+        let lamports = Rent::get()?.minimum_balance(CreatorStats::SIZE);
+
+        invoke_signed(
+            &solana_system_interface::instruction::create_account(
+                creator_account.key,
+                creator_stats.key,
+                lamports,
+                CreatorStats::SIZE as u64,
+                program_id,
+            ),
+            &[
+                creator_account.clone(),
+                creator_stats.clone(),
+                system_program.clone(),
+            ],
+            &[&[CREATOR_STATS_SEED, creator_account.key.as_ref(), &[bump]]],
+        )?;
+
+        let new_stats = CreatorStats::new();
+
+        let mut data = &mut creator_stats.data.borrow_mut()[..];
+        new_stats.serialize(&mut data)?;
+
+        return Ok(new_stats);
+    }
+
+    // Else: load and validate
+    if creator_stats.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let stats: CreatorStats = {
+        let data = creator_stats.try_borrow_data()?;
+        CreatorStats::try_from_slice(&data).map_err(|_| ProgramError::InvalidAccountData)?
+    };
+
+    stats.assert_valid()?;
+
+    Ok(stats)
+}
+```
+
+    </Accordion>
+
+</Accordions>

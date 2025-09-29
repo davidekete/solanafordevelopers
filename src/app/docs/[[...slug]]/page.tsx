@@ -1,4 +1,4 @@
-import { source } from "@/lib/source";
+import { getPageImage, source } from "@/lib/source";
 import {
   DocsPage,
   DocsBody,
@@ -83,14 +83,15 @@ export async function generateMetadata(props: {
     title: page.data.title,
     description: page.data.description,
     openGraph: {
-      images: [
-        {
-          url: "https://www.solanafordevs.com/opengraph-image.gif",
-          width: 1200,
-          height: 630,
-          type: "image/gif",
-        },
-      ],
+      // images: [
+      //   {
+      //     url: "https://www.solanafordevs.com/opengraph-image.gif",
+      //     width: 1200,
+      //     height: 630,
+      //     type: "image/gif",
+      //   },
+      // ],
+      images: getPageImage(page).url,
     },
   };
 }

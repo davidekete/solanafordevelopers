@@ -4,9 +4,8 @@
       "startServerCommand": "pnpm start",
       "startServerReadyPattern": "Ready",
       "url": [
-        "http://localhost:3000",
-        "http://localhost:3000/docs",
-        "http://localhost:3000/docs/introduction"
+        "http://localhost:3000/docs/introduction",
+        "http://localhost:3000/docs/introduction/setup"
       ],
       "numberOfRuns": 1,
       "settings": {

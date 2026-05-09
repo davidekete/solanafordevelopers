@@ -6,7 +6,7 @@ icon: Divide
 
 An account discriminator is a unique eight-byte tag derived from the account type’s name prefixed to every serialized account. It can be any eight bytes but it must be unique to each account owned by your program.
 
-The logic associated with using discrimators to prevent blind serialization is as follows → The moment your program loads an account, it first checks the tag (discriminator). If the tag matches the expected constant, deserialization proceeds; if not, the instruction fails immediately with `InvalidAccountData`. That single comparison eliminates type confusion and blocks the spoofing tricks described previously.
+The logic associated with using discriminators to prevent blind serialization is as follows → The moment your program loads an account, it first checks the tag (discriminator). If the tag matches the expected constant, deserialization proceeds; if not, the instruction fails immediately with `InvalidAccountData`. That single comparison eliminates type confusion and blocks the spoofing tricks described previously.
 
 ## Adding discriminators to your accounts
 

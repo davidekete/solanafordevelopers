@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev --turbo",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
@@ -32,12 +33,15 @@
     "zod": "^3.25.56"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@next/bundle-analyzer": "^16.2.6",
     "@svgr/webpack": "^8.1.0",
     "@tailwindcss/postcss": "^4.1.8",
     "@types/mdx": "^2.0.13",
     "@types/node": "22.15.28",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
+    "cspell": "^8.19.4",
     "eslint": "^8",
     "eslint-config-next": "15.3.3",
     "postcss": "^8.5.4",

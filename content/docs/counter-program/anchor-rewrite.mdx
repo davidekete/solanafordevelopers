@@ -9,7 +9,7 @@ import { LinkPrev } from "../../../src/components/link-hover.tsx";
 
 You have now written a Solana program from scratch in native Rust. You managed every detail by hand: serializing and deserializing account data with Borsh, iterating over accounts one at a time with `next_account_info`, invoking the System Program via CPI to create accounts, and writing a custom `unpack` function to route incoming instruction data. That is exactly what the Solana runtime requires — and understanding it is what makes you a stronger developer when things go wrong.
 
-<LinkPrev href={"https://www.anchor-lang.com/"}>Anchor</LinkPrev> is a framework that automates most of that boilerplate. It is positioned at the highest abstraction level in the spectrum this course covers: **Rust 🦀 → Pinocchio 🤥 → Steel ⚙️ → Anchor ⚓**. In this page, you will rewrite your counter program in Anchor and see exactly what the framework handles for you — and what it hides.
+<LinkPrev href={"https://www.anchor-lang.com/"}>Anchor</LinkPrev> is a framework that automates most of that boilerplate. It is positioned at the highest abstraction level in the spectrum this course covers: **Rust 🦀 → Anchor ⚓**. In this page, you will rewrite your counter program in Anchor and see exactly what the framework handles for you — and what it hides.
 
 ## Setting up Anchor
 

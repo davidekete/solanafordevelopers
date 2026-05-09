@@ -1,0 +1,234 @@
+---
+title: Testing ClosePoll
+description: Write integration tests for the ClosePoll instruction
+icon: TestTube
+---
+
+The `ClosePoll` tests live in `tests/close_poll.rs`. This instruction is the simplest of the three — no new accounts are created and the only state change is flipping `closed_early` on the `Poll` account. However, it has the most access-control surface to protect, so it has its own set of negative tests.
+
+## Setting up imports
+
+```rust title="tests/close_poll.rs"
+use borsh::BorshDeserialize;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_program_test::*;
+use solana_sdk::{
+    program_error::ProgramError,
+    signature::{Keypair, Signer},
+};
+
+use voting_program::{instructions::PollInstructions, state::poll::Poll};
+
+use crate::create_poll::{create_poll, submit_tx};
+
+mod create_poll;
+mod utils {
+    pub mod fund_account;
+}
+```
+
+Unlike the `CastVote` tests, closing a poll doesn't require funding the caller separately — the creator's keypair was already funded inside `create_poll`.
+
+## Tests
+
+### Happy path
+
+The happy path test creates a poll, submits a `ClosePoll` instruction signed by the creator, and then reads the poll back to confirm `closed_early` is now `true`.
+
+```rust title="tests/close_poll.rs"
+#[tokio::test]
+async fn close_poll_happy_path() {
+    let creator = Keypair::new();
+
+    let (poll_pda, mut context, program_id) = create_poll(
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        1,  // lead_slots
+        10, // duration_slots
+    )
+    .await
+    .unwrap();
+
+    let close_poll_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(creator.pubkey(), true), // signer
+            AccountMeta::new(poll_pda, false),        // Poll PDA
+        ],
+        data: PollInstructions::ClosePoll.pack(),
+    };
+
+    submit_tx(&mut context.banks_client, &creator, close_poll_ix)
+        .await
+        .unwrap();
+
+    let poll_acc = context
+        .banks_client
+        .get_account(poll_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+
+    assert_eq!(poll.closed_early, true);
+}
+```
+
+The `ClosePoll` instruction carries no data payload, so `PollInstructions::ClosePoll.pack()` just serializes the variant tag — a single byte identifying which enum variant to execute.
+
+### Non-creator tries to close the poll
+
+This test confirms that a random keypair cannot close someone else's poll. Your handler checks `poll.poll_creator != *creator_info.key` and rejects the instruction before any state is mutated.
+
+```rust title="tests/close_poll.rs"
+#[tokio::test]
+async fn close_poll_illegal_owner() {
+    let creator = Keypair::new();
+
+    let (poll_pda, mut context, program_id) = create_poll(
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        1,
+        10,
+    )
+    .await
+    .unwrap();
+
+    let random_keypair = Keypair::new();
+
+    let close_poll_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(random_keypair.pubkey(), true), // wrong signer
+            AccountMeta::new(poll_pda, false),
+        ],
+        data: PollInstructions::ClosePoll.pack(),
+    };
+
+    let result = submit_tx(&mut context.banks_client, &random_keypair, close_poll_ix).await;
+
+    assert!(
+        result.is_err(),
+        "A non-creator should not be able to close the poll"
+    );
+}
+```
+
+<Callout title="Info">
+
+For `random_keypair` to sign the transaction, it needs to be funded first. In practice, `submit_tx` will fail at transaction submission if the fee payer has zero lamports. You can add a `fund_keypair` call before building the instruction if you need to isolate the access-control error from a fee-payment error in your assertions.
+
+</Callout>
+
+### Closing a poll after its window has expired
+
+Your handler rejects `ClosePoll` when the poll's voting window has already ended — closing an expired poll would be meaningless. This test warps past `end_slot` and confirms the instruction fails.
+
+```rust title="tests/close_poll.rs"
+#[tokio::test]
+async fn test_close_poll_after_end_slot() {
+    let creator = Keypair::new();
+
+    let (poll_pda, mut context, program_id) = create_poll(
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        1,
+        10,
+    )
+    .await
+    .unwrap();
+
+    // Read the poll to find the end slot
+    let poll_acc = context
+        .banks_client
+        .get_account(poll_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+
+    // Warp past the end slot
+    context.warp_to_slot(poll.start_slot + 15).unwrap();
+
+    let close_poll_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(creator.pubkey(), true),
+            AccountMeta::new(poll_pda, false),
+        ],
+        data: PollInstructions::ClosePoll.pack(),
+    };
+
+    let result = submit_tx(&mut context.banks_client, &creator, close_poll_ix).await;
+
+    assert!(
+        result.is_err(),
+        "Closing a poll after its end slot should fail"
+    );
+}
+```
+
+### Double close
+
+This test closes a poll once, then tries to close it again. The second attempt must fail because `closed_early` is already `true` and your handler returns `PollAlreadyClosed` on that condition.
+
+```rust title="tests/close_poll.rs"
+#[tokio::test]
+async fn test_close_poll_double_close() {
+    let creator = Keypair::new();
+
+    let (poll_pda, mut context, program_id) = create_poll(
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,  // lead_slots = 0 so voting is open immediately
+        10,
+    )
+    .await
+    .unwrap();
+
+    let close_poll_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(creator.pubkey(), true),
+            AccountMeta::new(poll_pda, false),
+        ],
+        data: PollInstructions::ClosePoll.pack(),
+    };
+
+    // First close — should succeed
+    submit_tx(&mut context.banks_client, &creator, close_poll_ix.clone())
+        .await
+        .unwrap();
+
+    let poll_acc = context
+        .banks_client
+        .get_account(poll_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+    assert_eq!(poll.closed_early, true, "Poll should be marked as closed");
+
+    // Second close — should fail
+    let result = submit_tx(&mut context.banks_client, &creator, close_poll_ix).await;
+
+    assert!(result.is_err(), "Closing an already-closed poll should fail");
+}
+```
+
+You now have a complete, layered test suite for all three instructions in your voting program. Each test file builds on helpers from the previous one, and between happy-path coverage and negative tests, you have verified the program's behavior at each of its critical boundaries — input validation, access control, time-based constraints, and duplicate-action prevention.
+
+Running all tests is as simple as:
+
+```bash title="shell"
+cargo test
+```
+
+Rust's test runner will discover every function marked `#[tokio::test]` across all files in `tests/` and execute them in parallel. Any failure prints the assertion message and the line that failed, so you can pinpoint issues without reading raw program logs.

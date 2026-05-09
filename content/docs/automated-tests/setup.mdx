@@ -1,0 +1,86 @@
+---
+title: Setting Up for Testing
+description: Add test dependencies and create the file structure for your voting program tests
+icon: Settings
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+Integration tests in Rust live in a `tests/` directory at the root of your crate. Each file in that directory is compiled as a separate test binary, which is why you can share helpers across test files by declaring them as modules.
+
+<Steps>
+
+<Step>
+### Add dev dependencies
+
+Test tooling only needs to be present during testing, so you add it under `[dev-dependencies]` in `Cargo.toml`. This keeps your program's production binary lean.
+
+Add the following to your `Cargo.toml`:
+
+```toml title="Cargo.toml"
+[dev-dependencies]
+solana-program-test = "2.3.3"
+solana-sdk = "2.3.1"
+tokio = "1.44.1"
+```
+
+Here is what each dependency does:
+
+- **`solana-program-test`**: Provides the in-process Solana validator, the `ProgramTest` builder, and the `BanksClient` interface for submitting transactions and reading accounts.
+- **`solana-sdk`**: Provides the client-side types you need to build transactions — `Keypair`, `Transaction`, `Instruction`, `AccountMeta`, and more.
+- **`tokio`**: The async runtime. `solana-program-test` is async, so your test functions need to be `async` and run inside a Tokio runtime.
+</Step>
+
+<Step>
+### Enable the `lib` crate type
+
+For `solana-program-test` to load your program, your crate must expose a `lib` target alongside the `cdylib` you configured for deployment. If you haven't already, update the `[lib]` section of your `Cargo.toml`:
+
+```toml title="Cargo.toml"
+[lib]
+crate-type = ["cdylib", "lib"]
+```
+
+The `cdylib` target produces the `.so` binary the validator deploys on-chain. The `lib` target lets the test binary import your program's types directly — things like `PollInstructions`, `Poll`, `PollOption`, and `VoteRecord` — so you can build instructions and deserialize account data without any external serialization ceremony.
+</Step>
+
+<Step>
+### Create the test file structure
+
+Create the files and folders below inside your project root:
+
+```bash title="shell"
+mkdir -p tests/utils
+touch tests/create_poll.rs tests/cast_vote.rs tests/close_poll.rs
+touch tests/utils/fund_account.rs tests/utils/submit_tx.rs
+```
+
+Your project structure should now look like this:
+
+```
+voting_program/
+├── src/
+│   ├── lib.rs
+│   ├── instructions.rs
+│   ├── processor.rs
+│   ├── errors.rs
+│   └── state/
+│       ├── poll.rs
+│       ├── poll_option.rs
+│       ├── vote_record.rs
+│       └── creator_stats.rs
+└── tests/
+    ├── create_poll.rs
+    ├── cast_vote.rs
+    ├── close_poll.rs
+    └── utils/
+        ├── fund_account.rs
+        └── submit_tx.rs
+```
+
+Each test file corresponds to one instruction. The `utils/` folder holds shared helpers that every test file can pull in.
+</Step>
+
+</Steps>
+
+Now that your test infrastructure is in place, in the next section you will write the shared helper functions that all your test files will rely on.

@@ -2,3 +2,147 @@
 title: Ending a Poll Early
 description: Create the processors for each of your instructions
 ---
+
+Closing a poll early lets the creator end voting before the window expires. Unlike the other instruction handlers, this one doesn't create any new accounts. It simply validates that the caller is the poll's creator, that the poll is still active, and then marks it as closed by flipping `closed_early` to `true`.
+
+The `process_close_poll` handler needs access to two accounts:
+
+- The creator's account, which serves as the signer.
+- The poll account, which holds the state you need to update.
+
+## Implementing the handler
+
+Start by extracting the accounts and verifying that the creator has signed the transaction:
+
+```rust title="Rust"
+pub fn process_close_poll(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let acc_iter = &mut accounts.iter();
+    let creator_info = next_account_info(acc_iter)?; // signer
+    let poll_info = next_account_info(acc_iter)?;    // Poll PDA
+
+    if !creator_info.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+```
+
+Next, load the poll account and validate it:
+
+```rust title="Rust"
+    if poll_info.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut poll: Poll = {
+        let data = poll_info.try_borrow_data()?;
+        Poll::try_from_slice(&data).map_err(|_| ProgramError::InvalidAccountData)?
+    };
+
+    poll.assert_valid()?;
+```
+
+With the poll loaded, run the three checks that must pass before you touch any state:
+
+1. **Only the creator can close the poll.** The `poll_creator` field you stored at creation time makes this a single comparison.
+2. **The poll must not already be closed.** Closing an already-closed poll is a no-op at best and confusing to clients at worst.
+3. **The voting window must still be open.** It doesn't make sense to "end early" something that has already ended.
+
+```rust title="Rust"
+    // Access control — only the poll creator may close it
+    if poll.poll_creator != *creator_info.key {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    // Idempotency guard
+    if poll.closed_early {
+        return Err(PollError::PollAlreadyClosed.into());
+    }
+
+    // Can't close a poll that has already expired
+    let clock = Clock::get()?;
+    if clock.slot > poll.end_slot {
+        return Err(PollError::VotingWindowClosed.into());
+    }
+```
+
+With all checks passing, flip the flag and write the updated struct back to the account:
+
+```rust title="Rust"
+    poll.closed_early = true;
+    poll.serialize(&mut &mut poll_info.data.borrow_mut()[..])?;
+
+    msg!(
+        "Event: poll_closed_early - Poll={}, Creator={}",
+        poll_info.key,
+        creator_info.key
+    );
+
+    Ok(())
+}
+```
+
+<Callout title="Info">
+
+Notice that closing a poll does not delete the poll account or the associated `PollOption` accounts. The accounts and their data remain on-chain so clients can still read the final vote tallies. If you want to reclaim the rent stored in those accounts, you would need a separate `DeletePoll` instruction that transfers their lamport balances back to the creator and zeroes out their data.
+
+</Callout>
+
+<Accordions type="single">
+  <Accordion title="Full handler function snippet" id="full-close-poll">
+
+```rust title="Rust"
+pub fn process_close_poll(
+    program_id: &Pubkey,
+    accounts: &[AccountInfo],
+) -> ProgramResult {
+    let acc_iter = &mut accounts.iter();
+    let creator_info = next_account_info(acc_iter)?;
+    let poll_info = next_account_info(acc_iter)?;
+
+    if !creator_info.is_signer {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    if poll_info.owner != program_id {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+
+    let mut poll: Poll = {
+        let data = poll_info.try_borrow_data()?;
+        Poll::try_from_slice(&data).map_err(|_| ProgramError::InvalidAccountData)?
+    };
+
+    poll.assert_valid()?;
+
+    if poll.poll_creator != *creator_info.key {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
+    if poll.closed_early {
+        return Err(PollError::PollAlreadyClosed.into());
+    }
+
+    let clock = Clock::get()?;
+    if clock.slot > poll.end_slot {
+        return Err(PollError::VotingWindowClosed.into());
+    }
+
+    poll.closed_early = true;
+    poll.serialize(&mut &mut poll_info.data.borrow_mut()[..])?;
+
+    msg!(
+        "Event: poll_closed_early - Poll={}, Creator={}",
+        poll_info.key,
+        creator_info.key
+    );
+
+    Ok(())
+}
+```
+
+  </Accordion>
+</Accordions>
+
+You have now implemented all three instruction handlers for your voting program. In the next section, you will wire everything together by writing the program's entrypoint.

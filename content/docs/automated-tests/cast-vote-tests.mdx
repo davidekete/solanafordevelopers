@@ -1,0 +1,326 @@
+---
+title: Testing CastVote
+description: Write an instruction builder and integration tests for the CastVote instruction
+icon: TestTube
+---
+
+The `CastVote` tests live in `tests/cast_vote.rs`. Because casting a vote requires an existing poll, this file imports the `create_poll` and `submit_tx` helpers you wrote in the previous section. This is the pattern you'll follow throughout: each instruction's test file stands on the infrastructure built by earlier ones.
+
+## Setting up imports and module declarations
+
+```rust title="tests/cast_vote.rs"
+use borsh::BorshDeserialize;
+use solana_program::example_mocks::solana_sdk::system_program;
+use solana_program_test::*;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+};
+
+use voting_program::{
+    instructions::PollInstructions,
+    state::{poll::Poll, poll_option::PollOption, vote_record::VoteRecord},
+};
+
+use crate::create_poll::{create_poll, submit_tx};
+use crate::utils::fund_account::fund_keypair;
+
+mod create_poll;
+mod utils {
+    pub mod fund_account;
+}
+```
+
+The `mod create_poll;` declaration tells the compiler to include `tests/create_poll.rs` as a submodule of this test binary. You then import specific functions from it using `use crate::create_poll::...`.
+
+## Building the CastVote instruction
+
+The `build_cast_vote_ix` function takes the voter keypair and an `option_id`, creates a poll using the helper from the previous section, derives the required PDAs, and assembles the instruction. It returns the instruction, the test context, and a struct holding the public keys you'll need for assertions.
+
+```rust title="tests/cast_vote.rs"
+pub struct AssociatedPubkeys {
+    pub poll_pda: Pubkey,
+    pub program_id: Pubkey,
+    pub vote_record_pda: Pubkey,
+}
+
+pub async fn build_cast_vote_ix(
+    voter_account: &Keypair,
+    choice_idx: u8,
+    poll_description: String,
+    poll_options: Vec<String>,
+    creator: &Keypair,
+    lead_slots: u64,
+    duration_slots: u64,
+) -> Result<(Instruction, ProgramTestContext, AssociatedPubkeys), ProgramError> {
+    let (poll_pda, mut context, program_id) = create_poll(
+        poll_description,
+        poll_options,
+        creator,
+        lead_slots,
+        duration_slots,
+    )
+    .await
+    .unwrap();
+
+    let (option_pda, _) = Pubkey::find_program_address(
+        &[b"option", poll_pda.as_ref(), &[choice_idx]],
+        &program_id,
+    );
+
+    fund_keypair(
+        &context.banks_client,
+        &context.payer,
+        voter_account,
+        Some(1_000_000_000),
+    )
+    .await
+    .unwrap();
+
+    let (vote_record_pda, _) = Pubkey::find_program_address(
+        &[b"vote_record", poll_pda.as_ref(), voter_account.pubkey().as_ref()],
+        &program_id,
+    );
+
+    let instruction = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(voter_account.pubkey(), true), // voter / payer
+            AccountMeta::new(poll_pda, false),              // Poll PDA
+            AccountMeta::new(option_pda, false),            // PollOption PDA
+            AccountMeta::new(vote_record_pda, false),       // VoteRecord PDA (new)
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: PollInstructions::CastVote { option_id: choice_idx }.pack(),
+    };
+
+    let pubkeys = AssociatedPubkeys { poll_pda, program_id, vote_record_pda };
+
+    Ok((instruction, context, pubkeys))
+}
+```
+
+Note that `vote_record_pda` uses the seeds `[b"vote_record", poll_pda, voter_pubkey]`. These must exactly match the seeds your `process_cast_vote` handler uses when it calls `Pubkey::find_program_address` — any mismatch and the runtime will reject the account.
+
+## Tests
+
+### Happy path
+
+The happy path test verifies two things: that the `VoteRecord` account was created with the correct data, and that the `PollOption`'s vote count was incremented.
+
+```rust title="tests/cast_vote.rs"
+#[tokio::test]
+async fn test_cast_vote_happy_path() {
+    let voter = Keypair::new();
+    let creator = Keypair::new();
+    let choice_idx = 1u8;
+
+    let (cast_vote_ix, mut context, pubkeys) = build_cast_vote_ix(
+        &voter,
+        choice_idx,
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,  // lead_slots = 0 opens voting immediately (only valid in tests)
+        10, // duration_slots
+    )
+    .await
+    .unwrap();
+
+    submit_tx(&mut context.banks_client, &voter, cast_vote_ix)
+        .await
+        .unwrap();
+
+    // Assert the VoteRecord was created with the right data
+    let vote_acc = context
+        .banks_client
+        .get_account(pubkeys.vote_record_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let vote: VoteRecord = VoteRecord::try_from_slice(&vote_acc.data).unwrap();
+    assert_eq!(vote.voter, voter.pubkey());
+    assert_eq!(vote.option_id, choice_idx);
+
+    // Assert the vote tally incremented on the PollOption
+    let (option_pda, _) = Pubkey::find_program_address(
+        &[b"option", pubkeys.poll_pda.as_ref(), &[choice_idx]],
+        &pubkeys.program_id,
+    );
+
+    let opt_acc = context
+        .banks_client
+        .get_account(option_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let opt: PollOption = PollOption::try_from_slice(&opt_acc.data).unwrap();
+    assert_eq!(opt.vote_count, 1);
+}
+```
+
+Notice that `lead_slots = 0` is used here. In a real environment you would always set a lead time, but in tests the validator starts at slot 0 and the poll's `start_slot` would be `0 + 0 = 0`, which means voting is open from the moment the poll is created. This is a testing-only convenience.
+
+### Double vote prevention
+
+This test verifies that the same voter cannot cast two votes on the same poll. After the first successful vote, a second `CastVote` transaction from the same voter must fail — your program rejects it because the `VoteRecord` PDA for `(poll, voter)` already exists.
+
+```rust title="tests/cast_vote.rs"
+#[tokio::test]
+async fn test_cast_vote_double_spend() {
+    let voter = Keypair::new();
+    let creator = Keypair::new();
+    let choice_idx = 1u8;
+
+    let (cast_vote_ix, mut context, pubkeys) = build_cast_vote_ix(
+        &voter,
+        choice_idx,
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,
+        10,
+    )
+    .await
+    .unwrap();
+
+    // First vote — should succeed
+    submit_tx(&mut context.banks_client, &voter, cast_vote_ix)
+        .await
+        .unwrap();
+
+    // Second vote with a different option — should fail
+    let choice_idx_two = 0u8;
+
+    let (mut cast_vote_ix_two, _, _) = build_cast_vote_ix(
+        &voter,
+        choice_idx_two,
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,
+        10,
+    )
+    .await
+    .unwrap();
+
+    // Point the second instruction at the original program ID
+    // so it targets the same poll, not a new one
+    cast_vote_ix_two.program_id = pubkeys.program_id;
+
+    let result = submit_tx(&mut context.banks_client, &voter, cast_vote_ix_two).await;
+
+    assert!(result.is_err(), "Second vote from the same voter should fail");
+}
+```
+
+The key detail is `cast_vote_ix_two.program_id = pubkeys.program_id`. Without that, `build_cast_vote_ix` would create a brand new poll under a fresh program ID, and the second vote would succeed against a clean state. By reusing the original program ID, the second instruction targets the same poll where the `VoteRecord` already exists.
+
+### Voting for an option that doesn't exist
+
+This test submits a `CastVote` with an `option_id` of `5` on a poll that only has three options. The `PollOption` PDA derived from that index does not exist, so account validation in your handler fails:
+
+```rust title="tests/cast_vote.rs"
+#[tokio::test]
+async fn test_cast_vote_option_out_of_range() {
+    let voter = Keypair::new();
+    let creator = Keypair::new();
+    let choice_idx = 5u8; // poll only has 3 options
+
+    let (cast_vote_ix, mut context, _) = build_cast_vote_ix(
+        &voter,
+        choice_idx,
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,
+        10,
+    )
+    .await
+    .unwrap();
+
+    let result = submit_tx(&mut context.banks_client, &voter, cast_vote_ix).await;
+
+    assert!(result.is_err(), "Voting for a non-existent option should fail");
+    assert_eq!(result.err(), Some(ProgramError::InvalidInstructionData));
+}
+```
+
+### Voting after the poll ends
+
+This test uses `warp_to_slot` to advance the validator's clock past the poll's `end_slot` before attempting to vote. It is the first example of time-travel in the test suite.
+
+```rust title="tests/cast_vote.rs"
+#[tokio::test]
+async fn test_cast_vote_after_end() {
+    let voter = Keypair::new();
+    let creator = Keypair::new();
+    let choice_idx = 1u8;
+
+    let (poll_pda, mut context, program_id) = create_poll(
+        "Should sausages be banned from existence?".to_string(),
+        vec!["Yes".to_string(), "No".to_string(), "I wouldn't notice".to_string()],
+        &creator,
+        0,  // lead_slots
+        10, // duration_slots
+    )
+    .await
+    .unwrap();
+
+    // Read the poll to find out when it ends
+    let poll_acc = context
+        .banks_client
+        .get_account(poll_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+
+    // Jump past the end slot
+    context.warp_to_slot(poll.start_slot + 15).unwrap();
+
+    fund_keypair(
+        &context.banks_client,
+        &context.payer,
+        &voter,
+        Some(1_000_000_000),
+    )
+    .await
+    .unwrap();
+
+    let (option_pda, _) = Pubkey::find_program_address(
+        &[b"option", poll_pda.as_ref(), &[choice_idx]],
+        &program_id,
+    );
+
+    let (vote_record_pda, _) = Pubkey::find_program_address(
+        &[b"vote_record", poll_pda.as_ref(), voter.pubkey().as_ref()],
+        &program_id,
+    );
+
+    let cast_vote_ix = Instruction {
+        program_id,
+        accounts: vec![
+            AccountMeta::new(voter.pubkey(), true),
+            AccountMeta::new(poll_pda, false),
+            AccountMeta::new(option_pda, false),
+            AccountMeta::new(vote_record_pda, false),
+            AccountMeta::new_readonly(solana_program::system_program::id(), false),
+        ],
+        data: PollInstructions::CastVote { option_id: choice_idx }.pack(),
+    };
+
+    let result = submit_tx(&mut context.banks_client, &voter, cast_vote_ix).await;
+
+    assert!(result.is_err(), "Vote should be rejected after the poll ends");
+}
+```
+
+`context.warp_to_slot(poll.start_slot + 15)` moves the validator's slot counter forward without actually waiting. The poll has a `duration_slots` of `10`, so warping to `start_slot + 15` puts you five slots past `end_slot`. Your program reads `Clock::get()` at runtime, sees that `current_slot > poll.end_slot`, and returns `VotingWindowClosed`.
+
+Now that you have a full test suite for `CastVote`, in the next section you will write the tests for the `ClosePoll` instruction.

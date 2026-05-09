@@ -1,0 +1,426 @@
+---
+title: Testing CreatePoll
+description: Write an instruction builder and integration tests for the CreatePoll instruction
+icon: TestTube
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+Testing an instruction requires two things: a function that builds the instruction with all the right accounts and serialized data, and the test cases themselves that submit it and assert on the result. You will write both in `tests/create_poll.rs`.
+
+## Setting up imports
+
+Add the following imports at the top of `tests/create_poll.rs`:
+
+```rust title="tests/create_poll.rs"
+use borsh::BorshDeserialize;
+use solana_program::example_mocks::solana_sdk::system_program;
+use solana_program_test::*;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    program_error::ProgramError,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+
+use voting_program::{
+    instructions::PollInstructions,
+    process_instruction,
+    state::{
+        creator_stats::{CREATOR_STATS_SEED, CreatorStats},
+        poll::Poll,
+        poll_option::MAX_OPTION_NAME_LEN,
+    },
+};
+
+#[path = "utils/fund_account.rs"]
+mod fund_account;
+use fund_account::fund_account;
+```
+
+The `#[path = "..."]` attribute is how you include a module from a non-standard location inside a test binary. Because each file in `tests/` compiles as its own binary, you have to declare the `utils` modules explicitly in each file that needs them.
+
+## Building the CreatePoll instruction
+
+Rather than constructing the instruction inside every test, you write a reusable `build_create_poll_instruction` function. It handles the three things every test would otherwise repeat:
+
+1. **Deriving PDAs** — the `CreatorStats`, `Poll`, and `PollOption` addresses must be derived with the exact seeds your program expects, in the right order.
+2. **Reading current state** — the correct poll ID to use in the `Poll` PDA seeds comes from the `CreatorStats` account. If that account doesn't exist yet, the ID is `0`.
+3. **Assembling the account list** — the accounts must be passed to the instruction in the exact order your program's `next_account_info` calls expect.
+
+Like so:
+
+```rust title="tests/create_poll.rs"
+pub async fn build_create_poll_instruction(
+    program_id: Pubkey,
+    creator: &Keypair,
+    poll_description: String,
+    poll_options: Vec<String>,
+    lead_slots: u64,
+    duration_slots: u64,
+    context: &mut ProgramTestContext,
+) -> (Instruction, Pubkey) {
+    let (creator_stats_pda, _) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator.pubkey().as_ref()],
+        &program_id,
+    );
+
+    // Read the current poll ID from the CreatorStats account.
+    // If the account doesn't exist yet, default to 0.
+    let poll_id: u64 = match context
+        .banks_client
+        .get_account(creator_stats_pda)
+        .await
+        .unwrap()
+    {
+        Some(account) => {
+            let stats = CreatorStats::try_from_slice(&account.data).unwrap();
+            stats.next_poll_id
+        }
+        None => 0u64,
+    };
+
+    let (poll_pda, _) = Pubkey::find_program_address(
+        &[b"poll", creator.pubkey().as_ref(), &poll_id.to_le_bytes()],
+        &program_id,
+    );
+
+    let mut option_pdas = vec![];
+
+    for (idx, _) in poll_options.iter().enumerate() {
+        let (option_pda, _) = Pubkey::find_program_address(
+            &[b"option", poll_pda.as_ref(), &[idx as u8]],
+            &program_id,
+        );
+        option_pdas.push(option_pda);
+    }
+
+    // Assemble the account list in the order the program expects
+    let mut metas = vec![
+        AccountMeta::new(creator.pubkey(), true),        // signer / payer
+        AccountMeta::new(poll_pda, false),               // Poll PDA
+        AccountMeta::new(creator_stats_pda, false),      // CreatorStats PDA
+    ];
+
+    metas.extend(
+        option_pdas
+            .iter()
+            .map(|pubkey| AccountMeta::new(*pubkey, false)),
+    );
+
+    metas.push(AccountMeta::new_readonly(system_program::ID, false));
+
+    let instruction = Instruction {
+        program_id,
+        accounts: metas,
+        data: PollInstructions::CreatePoll {
+            lead_slots,
+            duration_slots,
+            poll_description,
+            poll_option_names: poll_options,
+        }
+        .pack(),
+    };
+
+    (instruction, poll_pda)
+}
+```
+
+Notice how `PollInstructions::CreatePoll { ... }.pack()` serializes the instruction data. This is the `pack` method you implemented on your `PollInstructions` enum — it calls `borsh::to_vec` under the hood and produces the bytes your program's `unpack` will read.
+
+## A composite helper for test setup
+
+Most of your `CastVote` and `ClosePoll` tests also need a poll to exist before they can run. Rather than repeating the setup steps in every test file, you expose a `create_poll` function from this file that other test files can import.
+
+```rust title="tests/create_poll.rs"
+pub async fn create_poll(
+    poll_description: String,
+    poll_options: Vec<String>,
+    poll_creator: &Keypair,
+    lead_slots: u64,
+    duration_slots: u64,
+) -> Result<(Pubkey, ProgramTestContext, Pubkey), ProgramError> {
+    let program_id = Pubkey::new_unique();
+
+    let program_test = ProgramTest::new(
+        "voting_program",
+        program_id,
+        processor!(process_instruction),
+    );
+
+    let mut context = program_test.start_with_context().await;
+
+    fund_account(
+        &context.banks_client,
+        &context.payer,
+        &poll_creator.pubkey(),
+        Some(100_000_000),
+    )
+    .await
+    .unwrap();
+
+    let (instruction, poll_pda) = build_create_poll_instruction(
+        program_id,
+        poll_creator,
+        poll_description,
+        poll_options,
+        lead_slots,
+        duration_slots,
+        &mut context,
+    )
+    .await;
+
+    submit_tx(&mut context.banks_client, poll_creator, instruction)
+        .await
+        .unwrap();
+
+    Ok((poll_pda, context, program_id))
+}
+```
+
+`ProgramTest::new` takes three arguments: the program name (matching the crate name in `Cargo.toml`), a freshly generated program ID, and the entrypoint function wrapped in the `processor!` macro. `start_with_context` starts the validator and returns a `ProgramTestContext` that gives you access to the `banks_client`, the pre-funded `payer`, and the clock.
+
+## Tests
+
+### Happy path
+
+The happy path test creates a poll and then reads the `Poll` account back from the validator to assert that its fields match what was sent:
+
+```rust title="tests/create_poll.rs"
+#[tokio::test]
+async fn test_create_poll() {
+    let poll_description = "Should sausages be banned from existence?".to_string();
+    let poll_options = vec![
+        "Yes".to_string(),
+        "No".to_string(),
+        "I wouldn't notice".to_string(),
+    ];
+
+    let creator = Keypair::new();
+
+    let (poll_pda, mut context, _) = create_poll(
+        poll_description.clone(),
+        poll_options.clone(),
+        &creator,
+        1,  // lead_slots
+        10, // duration_slots
+    )
+    .await
+    .unwrap();
+
+    let poll_acc = context
+        .banks_client
+        .get_account(poll_pda)
+        .await
+        .unwrap()
+        .unwrap();
+
+    let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+
+    assert!(poll.assert_valid().is_ok());
+    assert_eq!(poll.poll_creator, creator.pubkey());
+    assert!(poll.start_slot < poll.end_slot);
+    assert!(poll.options_count >= 2);
+    assert_eq!(poll.options_count as usize, poll_options.len());
+    assert_eq!(
+        &poll.poll_description[..poll.desc_len as usize],
+        poll_description.as_bytes()
+    );
+    assert!(poll.desc_len as usize <= voting_program::state::poll::MAX_DESC_LEN);
+}
+```
+
+A few things worth noting here. `assert!(poll.assert_valid().is_ok())` is your discriminator check — it confirms the first eight bytes match `POLL_DISCRIMINATOR`. The description check `&poll.poll_description[..poll.desc_len as usize]` slices the fixed-length buffer down to just the bytes that were actually written, which is why you stored `desc_len` in the first place.
+
+### Verifying `CreatorStats` increments
+
+This test creates 20 polls sequentially from the same creator and asserts that `next_poll_id` increments correctly after each one. It is a good example of keeping state across multiple transactions within a single test:
+
+```rust title="tests/create_poll.rs"
+#[tokio::test]
+async fn test_creator_stats_increment() {
+    let poll_description = "Should sausages be banned from existence?".to_string();
+    let poll_options = vec![
+        "Yes".to_string(),
+        "No".to_string(),
+        "I wouldn't notice".to_string(),
+    ];
+
+    let program_id = Pubkey::new_unique();
+    let program_test = ProgramTest::new(
+        "voting_program",
+        program_id,
+        processor!(process_instruction),
+    );
+
+    let mut context = program_test.start_with_context().await;
+    let creator = Keypair::new();
+
+    fund_account(
+        &context.banks_client,
+        &context.payer,
+        &creator.pubkey(),
+        Some(100_000_000_000),
+    )
+    .await
+    .unwrap();
+
+    let (creator_stats_pda, _) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator.pubkey().as_ref()],
+        &program_id,
+    );
+
+    let mut create_count = 1u64;
+
+    // First poll
+    let (instruction, _) = build_create_poll_instruction(
+        program_id,
+        &creator,
+        poll_description.clone(),
+        poll_options.clone(),
+        1,
+        100,
+        &mut context,
+    )
+    .await;
+
+    submit_tx(&mut context.banks_client, &creator, instruction)
+        .await
+        .unwrap();
+
+    loop {
+        let stats_acc = context
+            .banks_client
+            .get_account(creator_stats_pda)
+            .await
+            .unwrap()
+            .unwrap();
+
+        let stats = CreatorStats::try_from_slice(&stats_acc.data).unwrap();
+
+        assert!(stats.assert_valid().is_ok());
+        assert_eq!(stats.next_poll_id, create_count);
+
+        if create_count == 20 {
+            break;
+        }
+
+        let (next_instruction, _) = build_create_poll_instruction(
+            program_id,
+            &creator,
+            poll_description.clone(),
+            poll_options.clone(),
+            1,
+            100,
+            &mut context,
+        )
+        .await;
+
+        submit_tx(&mut context.banks_client, &creator, next_instruction)
+            .await
+            .unwrap();
+
+        create_count += 1;
+    }
+}
+```
+
+Notice that `build_create_poll_instruction` is called again inside the loop rather than reusing the same instruction. That is deliberate — each new poll needs a different `poll_id` in its PDA seeds, and the builder reads the current `CreatorStats` account to get the correct ID for each iteration.
+
+### Negative tests
+
+These tests confirm that your program rejects invalid inputs. The pattern is the same in all of them: submit the instruction and assert the error.
+
+**Description exceeds `MAX_DESC_LEN`:**
+
+```rust title="tests/create_poll.rs"
+#[tokio::test]
+async fn test_create_poll_description_cap() {
+    let poll_description = "x".repeat(280 + 1); // over the 255-byte limit
+    let poll_options = vec![
+        "AirPods".to_string(),
+        "Headphones".to_string(),
+        "Both".to_string(),
+    ];
+
+    let program_id = Pubkey::new_unique();
+    let program_test = ProgramTest::new(
+        "voting_program",
+        program_id,
+        processor!(process_instruction),
+    );
+    let mut context = program_test.start_with_context().await;
+    let creator = Keypair::new();
+
+    fund_account(
+        &context.banks_client,
+        &context.payer,
+        &creator.pubkey(),
+        Some(100_000_000),
+    )
+    .await
+    .unwrap();
+
+    let (instruction, _) = build_create_poll_instruction(
+        program_id,
+        &creator,
+        poll_description,
+        poll_options,
+        1,
+        10,
+        &mut context,
+    )
+    .await;
+
+    match submit_tx(&mut context.banks_client, &creator, instruction).await {
+        Ok(_) => panic!("Expected an error but got success"),
+        Err(err) => assert_eq!(err, ProgramError::InvalidInstructionData),
+    }
+}
+```
+
+**A poll option name exceeds `MAX_OPTION_NAME_LEN`:**
+
+```rust title="tests/create_poll.rs"
+#[tokio::test]
+async fn test_create_poll_option_cap() {
+    let poll_options = vec![
+        "A".repeat(MAX_OPTION_NAME_LEN + 1), // over the 64-byte limit
+        "Headphones".to_string(),
+        "Both".to_string(),
+    ];
+
+    // ... same setup as above ...
+
+    match submit_tx(&mut context.banks_client, &creator, instruction).await {
+        Ok(_) => panic!("Expected an error but got success"),
+        Err(err) => assert_eq!(err, ProgramError::InvalidInstructionData),
+    }
+}
+```
+
+**Description is only whitespace:**
+
+```rust title="tests/create_poll.rs"
+#[tokio::test]
+async fn test_create_poll_whitespace_description() {
+    // ... setup ...
+
+    let (instruction, _) = build_create_poll_instruction(
+        program_id,
+        &creator,
+        "   ".to_string(), // only whitespace — trim().len() == 0
+        vec!["Option A".to_string(), "Option B".to_string()],
+        1,
+        10,
+        &mut context,
+    )
+    .await;
+
+    let result = submit_tx(&mut context.banks_client, &creator, instruction).await;
+    assert_eq!(result.unwrap_err(), ProgramError::InvalidInstructionData);
+}
+```
+
+Now that you have a complete test suite and reusable helpers for `CreatePoll`, in the next section you will write tests for the `CastVote` instruction.

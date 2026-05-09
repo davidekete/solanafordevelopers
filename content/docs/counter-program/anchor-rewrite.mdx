@@ -3,4 +3,223 @@ title: "Bonus: Introduction to Anchor"
 description: Explore the Anchor framework by rewriting your counter program
 icon: Anchor
 ---
-{/* TODO() */}
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+import { LinkPrev } from "../../../src/components/link-hover.tsx";
+
+You have now written a Solana program from scratch in native Rust. You managed every detail by hand: serializing and deserializing account data with Borsh, iterating over accounts one at a time with `next_account_info`, invoking the System Program via CPI to create accounts, and writing a custom `unpack` function to route incoming instruction data. That is exactly what the Solana runtime requires — and understanding it is what makes you a stronger developer when things go wrong.
+
+<LinkPrev href={"https://www.anchor-lang.com/"}>Anchor</LinkPrev> is a framework that automates most of that boilerplate. It is positioned at the highest abstraction level in the spectrum this course covers: **Rust 🦀 → Pinocchio 🤥 → Steel ⚙️ → Anchor ⚓**. In this page, you will rewrite your counter program in Anchor and see exactly what the framework handles for you — and what it hides.
+
+## Setting up Anchor
+
+Anchor has its own CLI that you install via **AVM** (Anchor Version Manager), a tool that manages multiple Anchor versions the same way `rustup` manages Rust toolchains.
+
+<Steps>
+
+<Step>
+Install AVM by running:
+
+```bash title="shell"
+cargo install --git https://github.com/coral-xyz/anchor avm --force
+```
+</Step>
+
+<Step>
+Use AVM to install the latest stable version of Anchor:
+
+```bash title="shell"
+avm install latest
+avm use latest
+```
+</Step>
+
+<Step>
+Confirm the installation:
+
+```bash title="shell"
+anchor --version
+```
+</Step>
+
+<Step>
+Scaffold a new Anchor project:
+
+```bash title="shell"
+anchor init counter_program
+```
+
+This generates a fully configured workspace with a `programs/counter_program/src/lib.rs` file, a `tests/` directory with a pre-written TypeScript test harness, and the `Anchor.toml` workspace config file.
+
+</Step>
+
+</Steps>
+
+<Callout title="Info">
+Anchor requires Node.js and Yarn in addition to the Rust toolchain. If either is missing, install them before running `anchor init`.
+</Callout>
+
+## Defining state
+
+In your native program, defining state required three explicit steps: create a struct, derive `BorshSerialize` and `BorshDeserialize`, and remember to call `serialize`/`try_from_slice` at every read and write site.
+
+Like so:
+
+```rust title="src/state.rs"
+use borsh::{BorshDeserialize, BorshSerialize};
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+In Anchor, the `#[account]` macro replaces all of that. It automatically derives serialization and deserialization for your struct, and — critically — it prepends an **8-byte discriminator** to every serialized account. You saw in the voting program why discriminators matter: without one, Borsh will happily deserialize any 8-byte-aligned blob as your struct, opening the door to type confusion attacks. Anchor handles this for every account type, every time, without you writing a single extra line.
+
+Like so:
+
+```rust title="programs/counter_program/src/lib.rs"
+#[account]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+That one macro replaces your entire `state.rs` file.
+
+## Defining accounts
+
+In your native program, every instruction handler began with the same ritual: create an iterator over the accounts slice, call `next_account_info` once per expected account, and manually check ownership, signer status, and initialization.
+
+In Anchor, you describe the accounts an instruction needs in a dedicated struct annotated with `#[derive(Accounts)]`. Anchor validates them before your handler runs.
+
+Here is the `Initialize` accounts struct for the counter program:
+
+```rust title="programs/counter_program/src/lib.rs"
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(init, payer = payer, space = 8 + 8)]
+    pub counter: Account<'info, CounterAccount>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+```
+
+There is quite a lot happening in those few lines. Let's break it down:
+
+- **`Account<'info, CounterAccount>`** — Anchor's typed account wrapper. It confirms the account is owned by your program and deserializes its data into `CounterAccount` automatically.
+- **`init`** — tells Anchor to create this account. Under the hood, Anchor issues the same System Program CPI you wrote by hand. You no longer need to call `invoke` or calculate rent yourself.
+- **`payer = payer`** — specifies which account funds the creation. Anchor validates that `payer` is a signer and deducts rent from it.
+- **`space = 8 + 8`** — the total byte size of the account: 8 bytes for Anchor's automatic discriminator, plus 8 bytes for the `u64` counter. This replaces your manual `std::mem::size_of::<CounterAccount>()` calculation.
+- **`Signer<'info>`** — confirms the account has signed the transaction.
+- **`Program<'info, System>`** — confirms the account is the System Program.
+
+The `Increment` accounts struct is even simpler. Incrementing only needs the counter account itself, and because the account already exists, there is no `init` constraint:
+
+```rust title="programs/counter_program/src/lib.rs"
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut)]
+    pub counter: Account<'info, CounterAccount>,
+}
+```
+
+The `mut` constraint tells Anchor the account's data will be modified and it needs to be saved back at the end of the instruction.
+
+## Defining instructions
+
+In your native program, you defined a `CounterInstruction` enum with an `unpack` function, then matched on the result inside `process_instruction` to dispatch to the right handler. That dispatch logic and the handlers lived in separate files.
+
+In Anchor, instruction routing and handler logic live together in a single `#[program]` module. Each `pub fn` inside the module is one instruction. Anchor derives the routing automatically from the function names — there is no enum, no `unpack`, and no `match` statement.
+
+Like so:
+
+```rust title="programs/counter_program/src/lib.rs"
+#[program]
+pub mod counter_program {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>, initial_value: u64) -> Result<()> {
+        ctx.accounts.counter.count = initial_value;
+        Ok(())
+    }
+
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {
+        ctx.accounts.counter.count += 1;
+        Ok(())
+    }
+}
+```
+
+Each function receives a `Context<T>` where `T` is the corresponding accounts struct. Validated, deserialized accounts are accessible directly via `ctx.accounts`. Because `counter` is an `Account<'info, CounterAccount>`, you can read and mutate `count` as if it were a plain Rust struct field — Anchor serializes the changes back to the account's data buffer at the end of the instruction.
+
+<Callout title="Info">
+
+Anchor instruction functions return `Result<()>` instead of `ProgramResult`. `Result<()>` is Anchor's error type, which wraps `ProgramError` and adds support for Anchor's own `#[error_code]` enum — the Anchor equivalent of the custom errors you wrote with `thiserror` in the voting program.
+
+</Callout>
+
+## The full program
+
+Putting it all together, the entire counter program in Anchor fits in a single file:
+
+```rust title="programs/counter_program/src/lib.rs"
+use anchor_lang::prelude::*;
+
+declare_id!("YOUR_PROGRAM_ID");
+
+#[program]
+pub mod counter_program {
+    use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>, initial_value: u64) -> Result<()> {
+        ctx.accounts.counter.count = initial_value;
+        Ok(())
+    }
+
+    pub fn increment(ctx: Context<Increment>) -> Result<()> {
+        ctx.accounts.counter.count += 1;
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct Initialize<'info> {
+    #[account(init, payer = payer, space = 8 + 8)]
+    pub counter: Account<'info, CounterAccount>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Increment<'info> {
+    #[account(mut)]
+    pub counter: Account<'info, CounterAccount>,
+}
+
+#[account]
+pub struct CounterAccount {
+    pub count: u64,
+}
+```
+
+`declare_id!` registers the program's on-chain address. When you run `anchor build`, Anchor generates a keypair for the program (stored in `target/deploy/`) and injects its public key here. Every `#[program]` instruction checks at runtime that the program executing the instruction matches this ID, which prevents other programs from impersonating yours.
+
+## What Anchor handles for you
+
+Here is a side-by-side summary of everything the framework replaced:
+
+| Native Rust | Anchor equivalent |
+|---|---|
+| `BorshSerialize` + `BorshDeserialize` derives | `#[account]` macro |
+| Manual 8-byte discriminator | Automatic, enforced by `#[account]` |
+| `next_account_info` + manual checks | `#[derive(Accounts)]` with constraints |
+| `std::mem::size_of` + rent calculation | `space` constraint on `init` |
+| System Program CPI (`invoke`) | `init` constraint |
+| `CounterInstruction` enum + `unpack` | `#[program]` module (one fn per instruction) |
+| `entrypoint!` + `match` dispatch | Generated by `#[program]` |
+| Manual `serialize` / `try_from_slice` at every site | Automatic via `Account<'info, T>` |
+
+The tradeoff is transparency. When something goes wrong in an Anchor program, understanding the error often requires knowing what the macros expand to — which is exactly what you now understand from writing the native version first. The framework is a productivity tool, not a replacement for knowing how the runtime works.

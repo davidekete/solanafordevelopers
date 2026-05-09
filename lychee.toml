@@ -1,4 +1,22 @@
 base_url = "http://localhost:3000"
+timeout = 30
+max_retries = 3
+retry_wait_time = 5
+max_concurrency = 8
+no_progress = true
 
-accept = ["200", "304"]
-suggest = true
+# Accept 2xx, redirects, and 429 (rate-limited but reachable)
+accept = ["200", "206", "301", "302", "304", "429"]
+
+# Skip mailto: links
+exclude_mail = true
+
+# Domains that block bots or rate-limit aggressively
+exclude = [
+  "^https://github\\.com",
+  "^https://twitter\\.com",
+  "^https://x\\.com",
+  "^https://www\\.linkedin\\.com",
+  "^https://discord\\.gg",
+  "^https://discord\\.com/invite",
+]

@@ -1,0 +1,49 @@
+name: Link Check
+
+on:
+  pull_request:
+
+jobs:
+  link-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build site
+        run: pnpm build
+
+      - name: Start server
+        run: pnpm start &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000 && break
+            echo "Waiting for server... ($i/30)"
+            sleep 2
+          done
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config lychee.toml content/**/*.mdx
+          fail: true
+
+      - name: Check embeds
+        run: node scripts/check-embeds.mjs
+
+      - name: Check relative links
+        run: node scripts/check-relative-links.mjs

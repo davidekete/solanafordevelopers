@@ -39,7 +39,7 @@ pub fn process_cast_vote(
 
 Next, load the poll account and run a few checks before accepting the vote.
 
-First, you need to confirm that the poll is owned by your program, deserialize it, and call `assert_valid()` to verify the discriminator — the same pattern you used in `process_create_poll`:
+First, you need to confirm that the poll is owned by your program, deserialize it, and call `assert_valid()` to verify the discriminator, the same pattern you used in `process_create_poll`:
 
 ```rust title="Rust"
     if poll_info.owner != program_id {
@@ -77,7 +77,7 @@ Recall that when you modeled the `VoteRecord` as a PDA, you noted that its addre
 - The poll account's public key
 - The voter's public key
 
-Because this combination is unique per `(poll, voter)` pair, only one `VoteRecord` can ever exist for a given voter on a given poll. If the account already exists — meaning `data_is_empty()` returns `false` — the voter has already cast their ballot.
+Because this combination is unique per `(poll, voter)` pair, only one `VoteRecord` can ever exist for a given voter on a given poll. If the account already exists (meaning `data_is_empty()` returns `false`), the voter has already cast their ballot.
 
 ```rust title="Rust"
     let vote_record_seeds = &[b"vote", poll_info.key.as_ref(), voter_info.key.as_ref()];
@@ -124,7 +124,7 @@ The last two checks catch a class of attack where a client supplies a `PollOptio
 
 ## Recording the vote and updating the tally
 
-With all checks passing, you can now create the `VoteRecord` account, initialize it, and increment the vote count on the `PollOption`. The `VoteRecord` is a PDA, so you use `invoke_signed` here — same as when you created the `Poll` and `PollOption` accounts:
+With all checks passing, you can now create the `VoteRecord` account, initialize it, and increment the vote count on the `PollOption`. The `VoteRecord` is a PDA, so you use `invoke_signed` here, same as when you created the `Poll` and `PollOption` accounts:
 
 ```rust title="Rust"
     let lamports = Rent::get()?.minimum_balance(VoteRecord::SIZE);
@@ -296,4 +296,4 @@ pub fn process_cast_vote(
   </Accordion>
 </Accordions>
 
-Now that you have implemented the vote handler, in the next section you will implement the last instruction handler — closing a poll early.
+Now that you have implemented the vote handler, in the next section you will implement the last instruction handler: closing a poll early.

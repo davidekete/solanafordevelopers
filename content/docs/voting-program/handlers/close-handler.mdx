@@ -50,7 +50,7 @@ With the poll loaded, run the three checks that must pass before you touch any s
 3. **The voting window must still be open.** It doesn't make sense to "end early" something that has already ended.
 
 ```rust title="Rust"
-    // Access control — only the poll creator may close it
+    // Access control: only the poll creator may close it
     if poll.poll_creator != *creator_info.key {
         return Err(ProgramError::MissingRequiredSignature);
     }

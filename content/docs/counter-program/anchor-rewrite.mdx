@@ -7,9 +7,9 @@ icon: Anchor
 import { Step, Steps } from "fumadocs-ui/components/steps";
 import { LinkPrev } from "../../../src/components/link-hover.tsx";
 
-You have now written a Solana program from scratch in native Rust. You managed every detail by hand: serializing and deserializing account data with Borsh, iterating over accounts one at a time with `next_account_info`, invoking the System Program via CPI to create accounts, and writing a custom `unpack` function to route incoming instruction data. That is exactly what the Solana runtime requires — and understanding it is what makes you a stronger developer when things go wrong.
+You have now written a Solana program from scratch in native Rust. You managed every detail by hand: serializing and deserializing account data with Borsh, iterating over accounts one at a time with `next_account_info`, invoking the System Program via CPI to create accounts, and writing a custom `unpack` function to route incoming instruction data. That is exactly what the Solana runtime requires, and understanding it is what makes you a stronger developer when things go wrong.
 
-<LinkPrev href={"https://www.anchor-lang.com/"}>Anchor</LinkPrev> is a framework that automates most of that boilerplate. It is positioned at the highest abstraction level in the spectrum this course covers: **Rust 🦀 → Anchor ⚓**. In this page, you will rewrite your counter program in Anchor and see exactly what the framework handles for you — and what it hides.
+<LinkPrev href={"https://www.anchor-lang.com/"}>Anchor</LinkPrev> is a framework that automates most of that boilerplate. It is positioned at the highest abstraction level in the spectrum this course covers: **Rust 🦀 → Anchor ⚓**. In this page, you will rewrite your counter program in Anchor and see exactly what the framework handles for you and what it hides.
 
 ## Setting up Anchor
 
@@ -74,7 +74,7 @@ pub struct CounterAccount {
 }
 ```
 
-In Anchor, the `#[account]` macro replaces all of that. It automatically derives serialization and deserialization for your struct, and — critically — it prepends an **8-byte discriminator** to every serialized account. You saw in the voting program why discriminators matter: without one, Borsh will happily deserialize any 8-byte-aligned blob as your struct, opening the door to type confusion attacks. Anchor handles this for every account type, every time, without you writing a single extra line.
+In Anchor, the `#[account]` macro replaces all of that. It automatically derives serialization and deserialization for your struct and, critically, prepends an **8-byte discriminator** to every serialized account. You saw in the voting program why discriminators matter: without one, Borsh will happily deserialize any 8-byte-aligned blob as your struct, opening the door to type confusion attacks. Anchor handles this for every account type, every time, without you writing a single extra line.
 
 Like so:
 
@@ -108,12 +108,12 @@ pub struct Initialize<'info> {
 
 There is quite a lot happening in those few lines. Let's break it down:
 
-- **`Account<'info, CounterAccount>`** — Anchor's typed account wrapper. It confirms the account is owned by your program and deserializes its data into `CounterAccount` automatically.
-- **`init`** — tells Anchor to create this account. Under the hood, Anchor issues the same System Program CPI you wrote by hand. You no longer need to call `invoke` or calculate rent yourself.
-- **`payer = payer`** — specifies which account funds the creation. Anchor validates that `payer` is a signer and deducts rent from it.
-- **`space = 8 + 8`** — the total byte size of the account: 8 bytes for Anchor's automatic discriminator, plus 8 bytes for the `u64` counter. This replaces your manual `std::mem::size_of::<CounterAccount>()` calculation.
-- **`Signer<'info>`** — confirms the account has signed the transaction.
-- **`Program<'info, System>`** — confirms the account is the System Program.
+- **`Account<'info, CounterAccount>`**: Anchor's typed account wrapper. It confirms the account is owned by your program and deserializes its data into `CounterAccount` automatically.
+- **`init`**: tells Anchor to create this account. Under the hood, Anchor issues the same System Program CPI you wrote by hand. You no longer need to call `invoke` or calculate rent yourself.
+- **`payer = payer`**: specifies which account funds the creation. Anchor validates that `payer` is a signer and deducts rent from it.
+- **`space = 8 + 8`**: the total byte size of the account: 8 bytes for Anchor's automatic discriminator, plus 8 bytes for the `u64` counter. This replaces your manual `std::mem::size_of::<CounterAccount>()` calculation.
+- **`Signer<'info>`**: confirms the account has signed the transaction.
+- **`Program<'info, System>`**: confirms the account is the System Program.
 
 The `Increment` accounts struct is even simpler. Incrementing only needs the counter account itself, and because the account already exists, there is no `init` constraint:
 
@@ -131,7 +131,7 @@ The `mut` constraint tells Anchor the account's data will be modified and it nee
 
 In your native program, you defined a `CounterInstruction` enum with an `unpack` function, then matched on the result inside `process_instruction` to dispatch to the right handler. That dispatch logic and the handlers lived in separate files.
 
-In Anchor, instruction routing and handler logic live together in a single `#[program]` module. Each `pub fn` inside the module is one instruction. Anchor derives the routing automatically from the function names — there is no enum, no `unpack`, and no `match` statement.
+In Anchor, instruction routing and handler logic live together in a single `#[program]` module. Each `pub fn` inside the module is one instruction. Anchor derives the routing automatically from the function names, so there is no enum, no `unpack`, and no `match` statement.
 
 Like so:
 
@@ -152,11 +152,11 @@ pub mod counter_program {
 }
 ```
 
-Each function receives a `Context<T>` where `T` is the corresponding accounts struct. Validated, deserialized accounts are accessible directly via `ctx.accounts`. Because `counter` is an `Account<'info, CounterAccount>`, you can read and mutate `count` as if it were a plain Rust struct field — Anchor serializes the changes back to the account's data buffer at the end of the instruction.
+Each function receives a `Context<T>` where `T` is the corresponding accounts struct. Validated, deserialized accounts are accessible directly via `ctx.accounts`. Because `counter` is an `Account<'info, CounterAccount>`, you can read and mutate `count` as if it were a plain Rust struct field; Anchor serializes the changes back to the account's data buffer at the end of the instruction.
 
 <Callout title="Info">
 
-Anchor instruction functions return `Result<()>` instead of `ProgramResult`. `Result<()>` is Anchor's error type, which wraps `ProgramError` and adds support for Anchor's own `#[error_code]` enum — the Anchor equivalent of the custom errors you wrote with `thiserror` in the voting program.
+Anchor instruction functions return `Result<()>` instead of `ProgramResult`. `Result<()>` is Anchor's error type, which wraps `ProgramError` and adds support for Anchor's own `#[error_code]` enum, the Anchor equivalent of the custom errors you wrote with `thiserror` in the voting program.
 
 </Callout>
 
@@ -222,4 +222,4 @@ Here is a side-by-side summary of everything the framework replaced:
 | `entrypoint!` + `match` dispatch | Generated by `#[program]` |
 | Manual `serialize` / `try_from_slice` at every site | Automatic via `Account<'info, T>` |
 
-The tradeoff is transparency. When something goes wrong in an Anchor program, understanding the error often requires knowing what the macros expand to — which is exactly what you now understand from writing the native version first. The framework is a productivity tool, not a replacement for knowing how the runtime works.
+The tradeoff is transparency. When something goes wrong in an Anchor program, understanding the error often requires knowing what the macros expand to, which is exactly what you now understand from writing the native version first. The framework is a productivity tool, not a replacement for knowing how the runtime works.

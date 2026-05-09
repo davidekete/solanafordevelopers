@@ -6,13 +6,13 @@ icon: ClipboardCheck
 
 import { LinkPrev } from "../../../src/components/link-hover.tsx";
 
-Until now you have deployed programs directly and manually verified behavior. That approach breaks down fast — every change risks a regression, and catching mistakes on Devnet costs real time and dev SOL. Automated tests solve both problems.
+Until now you have deployed programs directly and manually verified behavior. That approach breaks down fast: every change risks a regression, and catching mistakes on Devnet costs real time and dev SOL. Automated tests solve both problems.
 
 In this module you will write integration tests for the voting program you built in the last module. The tests run against a full Solana runtime inside your process, with no external cluster or CLI required.
 
 ## What is `solana-program-test`?
 
-<LinkPrev href={"https://crates.io/crates/solana-program-test"}>`solana-program-test`</LinkPrev> is a crate that spins up a lightweight Solana validator in memory. It gives you a `BanksClient`, which is a client interface for submitting transactions and reading account data — the same operations a real client would perform on Devnet, but entirely local and deterministic.
+<LinkPrev href={"https://crates.io/crates/solana-program-test"}>`solana-program-test`</LinkPrev> is a crate that spins up a lightweight Solana validator in memory. It gives you a `BanksClient`, which is a client interface for submitting transactions and reading account data, the same operations a real client would perform on Devnet, but entirely local and deterministic.
 
 Because the validator runs inside the test process, you can:
 

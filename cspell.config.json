@@ -107,7 +107,8 @@
     "sandboxed",
     "deserialise",
     "deserialisation",
-    "authorisation"
+    "authorisation",
+    "litesvm"
   ],
   "ignorePaths": [
     "node_modules/**",

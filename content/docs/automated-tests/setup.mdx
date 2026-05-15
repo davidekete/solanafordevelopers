@@ -27,7 +27,7 @@ tokio = "1.44.1"
 Here is what each dependency does:
 
 - **`solana-program-test`**: Provides the in-process Solana validator, the `ProgramTest` builder, and the `BanksClient` interface for submitting transactions and reading accounts.
-- **`solana-sdk`**: Provides the client-side types you need to build transactions — `Keypair`, `Transaction`, `Instruction`, `AccountMeta`, and more.
+- **`solana-sdk`**: Provides the client-side types you need to build transactions: `Keypair`, `Transaction`, `Instruction`, `AccountMeta`, and more.
 - **`tokio`**: The async runtime. `solana-program-test` is async, so your test functions need to be `async` and run inside a Tokio runtime.
 </Step>
 
@@ -41,7 +41,7 @@ For `solana-program-test` to load your program, your crate must expose a `lib` t
 crate-type = ["cdylib", "lib"]
 ```
 
-The `cdylib` target produces the `.so` binary the validator deploys on-chain. The `lib` target lets the test binary import your program's types directly — things like `PollInstructions`, `Poll`, `PollOption`, and `VoteRecord` — so you can build instructions and deserialize account data without any external serialization ceremony.
+The `cdylib` target produces the `.so` binary the validator deploys on-chain. The `lib` target lets the test binary import your program's types directly (things like `PollInstructions`, `Poll`, `PollOption`, and `VoteRecord`) so you can build instructions and deserialize account data without any external serialization ceremony.
 </Step>
 
 <Step>

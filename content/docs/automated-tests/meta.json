@@ -7,6 +7,7 @@
     "test-utils",
     "create-poll-tests",
     "cast-vote-tests",
-    "close-poll-tests"
+    "close-poll-tests",
+    "litesvm"
   ]
 }

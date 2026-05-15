@@ -102,7 +102,7 @@ pub async fn build_cast_vote_ix(
 }
 ```
 
-Note that `vote_record_pda` uses the seeds `[b"vote_record", poll_pda, voter_pubkey]`. These must exactly match the seeds your `process_cast_vote` handler uses when it calls `Pubkey::find_program_address` — any mismatch and the runtime will reject the account.
+Note that `vote_record_pda` uses the seeds `[b"vote_record", poll_pda, voter_pubkey]`. These must exactly match the seeds your `process_cast_vote` handler uses when it calls `Pubkey::find_program_address`; any mismatch and the runtime will reject the account.
 
 ## Tests
 
@@ -167,7 +167,7 @@ Notice that `lead_slots = 0` is used here. In a real environment you would alway
 
 ### Double vote prevention
 
-This test verifies that the same voter cannot cast two votes on the same poll. After the first successful vote, a second `CastVote` transaction from the same voter must fail — your program rejects it because the `VoteRecord` PDA for `(poll, voter)` already exists.
+This test verifies that the same voter cannot cast two votes on the same poll. After the first successful vote, a second `CastVote` transaction from the same voter must fail because the `VoteRecord` PDA for `(poll, voter)` already exists.
 
 ```rust title="tests/cast_vote.rs"
 #[tokio::test]
@@ -188,12 +188,12 @@ async fn test_cast_vote_double_spend() {
     .await
     .unwrap();
 
-    // First vote — should succeed
+    // First vote: should succeed
     submit_tx(&mut context.banks_client, &voter, cast_vote_ix)
         .await
         .unwrap();
 
-    // Second vote with a different option — should fail
+    // Second vote with a different option: should fail
     let choice_idx_two = 0u8;
 
     let (mut cast_vote_ix_two, _, _) = build_cast_vote_ix(

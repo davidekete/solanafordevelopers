@@ -129,7 +129,7 @@ pub async fn submit_tx(
 
 <Callout title="Info">
 
-The fallback `Err(ProgramError::InvalidInstructionData)` at the bottom catches errors that aren't `Custom` — for example, a missing signature or a malformed transaction. In practice you will see these only when the error originates outside your program logic.
+The fallback `Err(ProgramError::InvalidInstructionData)` at the bottom catches errors that aren't `Custom`, for example a missing signature or a malformed transaction. In practice you will see these only when the error originates outside your program logic.
 
 </Callout>
 

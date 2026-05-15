@@ -4,7 +4,7 @@ description: Write integration tests for the ClosePoll instruction
 icon: TestTube
 ---
 
-The `ClosePoll` tests live in `tests/close_poll.rs`. This instruction is the simplest of the three — no new accounts are created and the only state change is flipping `closed_early` on the `Poll` account. However, it has the most access-control surface to protect, so it has its own set of negative tests.
+The `ClosePoll` tests live in `tests/close_poll.rs`. This instruction is the simplest of the three: no new accounts are created and the only state change is flipping `closed_early` on the `Poll` account. However, it has the most access-control surface to protect, so it has its own set of negative tests.
 
 ## Setting up imports
 
@@ -27,7 +27,7 @@ mod utils {
 }
 ```
 
-Unlike the `CastVote` tests, closing a poll doesn't require funding the caller separately — the creator's keypair was already funded inside `create_poll`.
+Unlike the `CastVote` tests, closing a poll doesn't require funding the caller separately; the creator's keypair was already funded inside `create_poll`.
 
 ## Tests
 
@@ -76,7 +76,7 @@ async fn close_poll_happy_path() {
 }
 ```
 
-The `ClosePoll` instruction carries no data payload, so `PollInstructions::ClosePoll.pack()` just serializes the variant tag — a single byte identifying which enum variant to execute.
+The `ClosePoll` instruction carries no data payload, so `PollInstructions::ClosePoll.pack()` just serializes the variant tag, a single byte identifying which enum variant to execute.
 
 ### Non-creator tries to close the poll
 
@@ -125,7 +125,7 @@ For `random_keypair` to sign the transaction, it needs to be funded first. In pr
 
 ### Closing a poll after its window has expired
 
-Your handler rejects `ClosePoll` when the poll's voting window has already ended — closing an expired poll would be meaningless. This test warps past `end_slot` and confirms the instruction fails.
+Your handler rejects `ClosePoll` when the poll's voting window has already ended; closing an expired poll would be meaningless. This test warps past `end_slot` and confirms the instruction fails.
 
 ```rust title="tests/close_poll.rs"
 #[tokio::test]
@@ -201,7 +201,7 @@ async fn test_close_poll_double_close() {
         data: PollInstructions::ClosePoll.pack(),
     };
 
-    // First close — should succeed
+    // First close: should succeed
     submit_tx(&mut context.banks_client, &creator, close_poll_ix.clone())
         .await
         .unwrap();
@@ -216,14 +216,14 @@ async fn test_close_poll_double_close() {
     let poll: Poll = Poll::try_from_slice(&poll_acc.data).unwrap();
     assert_eq!(poll.closed_early, true, "Poll should be marked as closed");
 
-    // Second close — should fail
+    // Second close: should fail
     let result = submit_tx(&mut context.banks_client, &creator, close_poll_ix).await;
 
     assert!(result.is_err(), "Closing an already-closed poll should fail");
 }
 ```
 
-You now have a complete, layered test suite for all three instructions in your voting program. Each test file builds on helpers from the previous one, and between happy-path coverage and negative tests, you have verified the program's behavior at each of its critical boundaries — input validation, access control, time-based constraints, and duplicate-action prevention.
+You now have a complete, layered test suite for all three instructions in your voting program. Each test file builds on helpers from the previous one, and between happy-path coverage and negative tests, you have verified the program's behavior at each of its critical boundaries: input validation, access control, time-based constraints, and duplicate-action prevention.
 
 Running all tests is as simple as:
 

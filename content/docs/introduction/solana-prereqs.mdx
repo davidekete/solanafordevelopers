@@ -104,7 +104,7 @@ Solana uses a **rent model** to manage storage costs and discourage unused data 
 
 Every account must hold a minimum number of lamports to remain rent-exempt. If an account’s balance drops below this threshold, the network may reclaim the account’s storage over time.
 
-To avoid this, you typically **prepay rent** by funding the account with enough lamports to make it rent-exempt. This is a one-time cost, and the account stays alive permanently — unless you explicitly close it and reclaim the SOL.
+To avoid this, you typically **prepay rent** by funding the account with enough lamports to make it rent-exempt. This is a one-time cost, and the account stays alive permanently, unless you explicitly close it and reclaim the SOL.
 
 You’ll see rent-exemption checks often when creating new accounts:
 

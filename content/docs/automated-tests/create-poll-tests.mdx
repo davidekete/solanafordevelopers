@@ -45,9 +45,9 @@ The `#[path = "..."]` attribute is how you include a module from a non-standard 
 
 Rather than constructing the instruction inside every test, you write a reusable `build_create_poll_instruction` function. It handles the three things every test would otherwise repeat:
 
-1. **Deriving PDAs** — the `CreatorStats`, `Poll`, and `PollOption` addresses must be derived with the exact seeds your program expects, in the right order.
-2. **Reading current state** — the correct poll ID to use in the `Poll` PDA seeds comes from the `CreatorStats` account. If that account doesn't exist yet, the ID is `0`.
-3. **Assembling the account list** — the accounts must be passed to the instruction in the exact order your program's `next_account_info` calls expect.
+1. **Deriving PDAs**: the `CreatorStats`, `Poll`, and `PollOption` addresses must be derived with the exact seeds your program expects, in the right order.
+2. **Reading current state**: the correct poll ID to use in the `Poll` PDA seeds comes from the `CreatorStats` account. If that account doesn't exist yet, the ID is `0`.
+3. **Assembling the account list**: the accounts must be passed to the instruction in the exact order your program's `next_account_info` calls expect.
 
 Like so:
 
@@ -127,7 +127,7 @@ pub async fn build_create_poll_instruction(
 }
 ```
 
-Notice how `PollInstructions::CreatePoll { ... }.pack()` serializes the instruction data. This is the `pack` method you implemented on your `PollInstructions` enum — it calls `borsh::to_vec` under the hood and produces the bytes your program's `unpack` will read.
+Notice how `PollInstructions::CreatePoll { ... }.pack()` serializes the instruction data. This is the `pack` method you implemented on your `PollInstructions` enum; it calls `borsh::to_vec` under the hood and produces the bytes your program's `unpack` will read.
 
 ## A composite helper for test setup
 
@@ -231,7 +231,7 @@ async fn test_create_poll() {
 }
 ```
 
-A few things worth noting here. `assert!(poll.assert_valid().is_ok())` is your discriminator check — it confirms the first eight bytes match `POLL_DISCRIMINATOR`. The description check `&poll.poll_description[..poll.desc_len as usize]` slices the fixed-length buffer down to just the bytes that were actually written, which is why you stored `desc_len` in the first place.
+A few things worth noting here. `assert!(poll.assert_valid().is_ok())` is your discriminator check: it confirms the first eight bytes match `POLL_DISCRIMINATOR`. The description check `&poll.poll_description[..poll.desc_len as usize]` slices the fixed-length buffer down to just the bytes that were actually written, which is why you stored `desc_len` in the first place.
 
 ### Verifying `CreatorStats` increments
 
@@ -326,7 +326,7 @@ async fn test_creator_stats_increment() {
 }
 ```
 
-Notice that `build_create_poll_instruction` is called again inside the loop rather than reusing the same instruction. That is deliberate — each new poll needs a different `poll_id` in its PDA seeds, and the builder reads the current `CreatorStats` account to get the correct ID for each iteration.
+Notice that `build_create_poll_instruction` is called again inside the loop rather than reusing the same instruction. That is deliberate: each new poll needs a different `poll_id` in its PDA seeds, and the builder reads the current `CreatorStats` account to get the correct ID for each iteration.
 
 ### Negative tests
 
@@ -410,7 +410,7 @@ async fn test_create_poll_whitespace_description() {
     let (instruction, _) = build_create_poll_instruction(
         program_id,
         &creator,
-        "   ".to_string(), // only whitespace — trim().len() == 0
+        "   ".to_string(), // only whitespace: trim().len() == 0
         vec!["Option A".to_string(), "Option B".to_string()],
         1,
         10,

@@ -1,0 +1,295 @@
+---
+title: Testing with LiteSVM
+description: Replace solana-program-test with LiteSVM for faster, synchronous tests that are easier to write and debug
+icon: Zap
+---
+
+import { Step, Steps } from "fumadocs-ui/components/steps";
+
+The tests you wrote with `solana-program-test` are correct, but that crate carries a lot of weight. It launches a full in-process Solana validator, complete with the RPC layer, bank scheduler, and background services, before a single test runs. That overhead adds up: cold start alone can take hundreds of milliseconds per test binary, and every account read and transaction submission crosses an async boundary.
+
+[LiteSVM](https://github.com/LiteSVM/litesvm) takes a different approach. Instead of embedding a validator, it runs only the Solana Virtual Machine: the part that actually executes your BPF program and modifies account state. There is no network layer, no async runtime, and no bank startup cost. The result is tests that start instantly and run synchronously.
+
+## Why LiteSVM over `solana-program-test`
+
+| | `solana-program-test` | LiteSVM |
+|---|---|---|
+| **Async** | Required (`#[tokio::test]`) | Not required (`#[test]`) |
+| **Startup time** | Slow: spins up a full validator | Fast: only the SVM |
+| **Funding accounts** | Build and submit a transfer transaction | `svm.airdrop(&pubkey, lamports)` |
+| **Getting blockhash** | `await banks_client.get_latest_blockhash()` | `svm.latest_blockhash()` |
+| **Sending transactions** | `await banks_client.process_transaction(tx)` | `svm.send_transaction(tx)` |
+| **Reading accounts** | `await banks_client.get_account(pubkey)` | `svm.get_account(&pubkey)` |
+| **Program logs on failure** | Not exposed in the error type | Available in `FailedTransactionMetadata` |
+| **Compute units used** | Not available | Available in `TransactionMetadata` |
+
+Beyond the API differences, the absence of `async` eliminates the borrow checker friction that comes with `BanksClient`. In `solana-program-test`, `banks_client` must be `&mut` for writes but `&` for reads, which forces you to split calls across separate borrows or pass it by mutable reference everywhere. In LiteSVM, `send_transaction` and `get_account` both take `&mut self` on the `LiteSVM` struct itself, and you own it outright, so there is no juggling.
+
+## Tradeoff: you test the compiled artifact
+
+`solana-program-test` uses the `processor!` macro to call your entrypoint function directly in-process. LiteSVM instead loads the compiled BPF binary, the same `.so` file you deploy to the network. This means you must run `cargo build-sbf` before `cargo test`, whereas `solana-program-test` only needs `cargo test`.
+
+The upside is that LiteSVM tests what actually ships. If a build flag, linker configuration, or BPF-incompatible dependency would break your deployed program, LiteSVM catches it. `solana-program-test` would not.
+
+## Setup
+
+<Steps>
+
+<Step>
+### Update dev dependencies
+
+Replace `solana-program-test` and `tokio` with `litesvm`. Keep `solana-sdk`; you still need it to build transactions and keypairs.
+
+```toml title="Cargo.toml"
+[dev-dependencies]
+litesvm = "0.6"
+solana-sdk = "2.3.1"
+```
+
+`tokio` is no longer needed because LiteSVM tests are synchronous.
+</Step>
+
+<Step>
+### Build the program binary
+
+LiteSVM loads your program from its compiled BPF binary. Build it with:
+
+```bash title="shell"
+cargo build-sbf
+```
+
+This produces `target/deploy/voting_program.so`. You need to rebuild any time you change your program source. In CI, add this step before `cargo test`.
+</Step>
+
+<Step>
+### Add the program to LiteSVM
+
+In each test file, load the binary and register it with a program ID:
+
+```rust
+let mut svm = LiteSVM::new();
+let program_id = Pubkey::new_unique();
+
+let program_bytes = include_bytes!("../target/deploy/voting_program.so");
+svm.add_program(program_id, program_bytes);
+```
+
+`include_bytes!` embeds the `.so` into the test binary at compile time. The path is relative to the test file. Because the program ID is generated fresh with `Pubkey::new_unique()`, each test gets an isolated program namespace and state cannot leak between tests.
+</Step>
+
+</Steps>
+
+## Writing tests
+
+The shape of a LiteSVM test mirrors the `solana-program-test` equivalent, but without `async`, `await`, and the `BanksClient` indirection.
+
+Here is the `create_poll` happy-path test rewritten for LiteSVM. Compare it to the version in the previous section:
+
+```rust title="tests/create_poll.rs"
+use borsh::BorshDeserialize;
+use litesvm::LiteSVM;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
+};
+
+use voting_program::{
+    instructions::PollInstructions,
+    state::{
+        creator_stats::{CREATOR_STATS_SEED, CreatorStats},
+        poll::Poll,
+    },
+};
+
+fn build_create_poll_instruction(
+    svm: &mut LiteSVM,
+    program_id: Pubkey,
+    creator: &Keypair,
+    poll_description: String,
+    poll_options: Vec<String>,
+    lead_slots: u64,
+    duration_slots: u64,
+) -> (Instruction, Pubkey) {
+    let (creator_stats_pda, _) = Pubkey::find_program_address(
+        &[CREATOR_STATS_SEED, creator.pubkey().as_ref()],
+        &program_id,
+    );
+
+    let poll_id: u64 = match svm.get_account(&creator_stats_pda) {
+        Some(account) => CreatorStats::try_from_slice(&account.data).unwrap().next_poll_id,
+        None => 0,
+    };
+
+    let (poll_pda, _) = Pubkey::find_program_address(
+        &[b"poll", creator.pubkey().as_ref(), &poll_id.to_le_bytes()],
+        &program_id,
+    );
+
+    let mut metas = vec![
+        AccountMeta::new(creator.pubkey(), true),
+        AccountMeta::new(poll_pda, false),
+        AccountMeta::new(creator_stats_pda, false),
+    ];
+
+    for (idx, _) in poll_options.iter().enumerate() {
+        let (option_pda, _) = Pubkey::find_program_address(
+            &[b"option", poll_pda.as_ref(), &[idx as u8]],
+            &program_id,
+        );
+        metas.push(AccountMeta::new(option_pda, false));
+    }
+
+    metas.push(AccountMeta::new_readonly(
+        solana_sdk::system_program::ID,
+        false,
+    ));
+
+    let instruction = Instruction {
+        program_id,
+        accounts: metas,
+        data: PollInstructions::CreatePoll {
+            lead_slots,
+            duration_slots,
+            poll_description,
+            poll_option_names: poll_options,
+        }
+        .pack(),
+    };
+
+    (instruction, poll_pda)
+}
+
+#[test]
+fn test_create_poll() {
+    let mut svm = LiteSVM::new();
+    let program_id = Pubkey::new_unique();
+    svm.add_program(program_id, include_bytes!("../target/deploy/voting_program.so"));
+
+    let creator = Keypair::new();
+    svm.airdrop(&creator.pubkey(), 100_000_000).unwrap();
+
+    let poll_description = "Should sausages be banned from existence?".to_string();
+    let poll_options = vec![
+        "Yes".to_string(),
+        "No".to_string(),
+        "I wouldn't notice".to_string(),
+    ];
+
+    let (ix, poll_pda) = build_create_poll_instruction(
+        &mut svm,
+        program_id,
+        &creator,
+        poll_description.clone(),
+        poll_options.clone(),
+        1,
+        10,
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&creator.pubkey()),
+        &[&creator],
+        svm.latest_blockhash(),
+    );
+
+    svm.send_transaction(tx).unwrap();
+
+    let poll_acc = svm.get_account(&poll_pda).unwrap();
+    let poll = Poll::try_from_slice(&poll_acc.data).unwrap();
+
+    assert!(poll.assert_valid().is_ok());
+    assert_eq!(poll.poll_creator, creator.pubkey());
+    assert!(poll.start_slot < poll.end_slot);
+    assert_eq!(poll.options_count as usize, poll_options.len());
+    assert_eq!(
+        &poll.poll_description[..poll.desc_len as usize],
+        poll_description.as_bytes()
+    );
+}
+```
+
+The structural differences from the `solana-program-test` version:
+
+- `#[test]`: no `async`, no `#[tokio::test]`, no runtime startup.
+- `svm.airdrop(...)`: replaces the entire `fund_account` helper. No transaction needed.
+- `svm.get_account(&pubkey)`: synchronous, returns `Option<Account>` directly.
+- `svm.latest_blockhash()`: synchronous, no `await`.
+- `svm.send_transaction(tx)`: synchronous, returns a `Result` you can unwrap or match on.
+
+`build_create_poll_instruction` is also now a plain `fn` instead of `async fn`, and it takes `&mut LiteSVM` to read account state. No `ProgramTestContext` needed.
+
+## Handling errors
+
+`send_transaction` returns `Result<TransactionMetadata, FailedTransactionMetadata>`. On failure, `FailedTransactionMetadata` gives you both the error and the program logs from the failed execution, which `solana-program-test` does not expose.
+
+```rust title="tests/create_poll.rs"
+fn extract_program_error(failed: &litesvm::types::FailedTransactionMetadata) -> u32 {
+    use solana_sdk::{
+        instruction::InstructionError,
+        transaction::TransactionError,
+    };
+
+    if let TransactionError::InstructionError(_, InstructionError::Custom(code)) = &failed.err {
+        return *code;
+    }
+
+    panic!("unexpected error type: {:?}", failed.err);
+}
+```
+
+Use it in a negative test the same way you used `submit_tx` before:
+
+```rust title="tests/create_poll.rs"
+#[test]
+fn test_create_poll_description_cap() {
+    let mut svm = LiteSVM::new();
+    let program_id = Pubkey::new_unique();
+    svm.add_program(program_id, include_bytes!("../target/deploy/voting_program.so"));
+
+    let creator = Keypair::new();
+    svm.airdrop(&creator.pubkey(), 100_000_000).unwrap();
+
+    let (ix, _) = build_create_poll_instruction(
+        &mut svm,
+        program_id,
+        &creator,
+        "x".repeat(280 + 1),
+        vec!["Option A".to_string(), "Option B".to_string()],
+        1,
+        10,
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&creator.pubkey()),
+        &[&creator],
+        svm.latest_blockhash(),
+    );
+
+    match svm.send_transaction(tx) {
+        Ok(_) => panic!("expected an error but got success"),
+        Err(failed) => {
+            // Program logs are available even on failure
+            println!("program logs: {:?}", failed.meta.logs);
+            assert_eq!(
+                extract_program_error(&failed),
+                solana_sdk::program_error::ProgramError::InvalidInstructionData as u32,
+            );
+        }
+    }
+}
+```
+
+The `failed.meta.logs` field contains every `msg!()` call your program made before it returned the error. In `solana-program-test` this information is swallowed by the time the error reaches your test. In LiteSVM you can print it directly or assert on specific log messages, which is useful when debugging a new instruction and the error code alone does not tell you which guard triggered.
+
+## Warping the clock
+
+`svm.warp_to_slot` works the same way as `context.warp_to_slot` in `solana-program-test`, just without the `unwrap` ceremony:
+
+```rust
+svm.warp_to_slot(poll.end_slot + 1);
+```
+
+Call it between any two `send_transaction` calls to advance the validator's view of the current slot. Time-dependent tests like `test_close_poll_after_end_slot` translate directly.
